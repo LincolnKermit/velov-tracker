@@ -11,5 +11,10 @@ def get_stations():
         "Accept": "application/json"
     }
     url = f"https://api.jcdecaux.com/vls/v3/stations?contract={contract}&apiKey={jcd_api_key}"
-    response = requests.get(url, headers=headers)
+    try:
+        response = requests.get(url, headers=headers)
+    except requests.exceptions.ConnectionError:
+        print("Connection error : Check your network connection and try again.")
+    else:
+        print("API response status code:", response.status_code)
     return json.loads(response.text)

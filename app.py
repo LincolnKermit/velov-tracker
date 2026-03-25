@@ -1,38 +1,36 @@
-import folium, flask, os, webbrowser
+import folium, flask, os, webbrowser, json
 from utils import get_stations
+from ux import filter_html
 
 app = flask.Flask(__name__)
-
-#functions
 
 def setup():
     os.system("rm stations.txt")
     os.system("rm templates/map.html")
 
-
 def load():
-    tiles = 'VeloV Stations'
-    map = folium.Map(location=(45.750000, 4.850000), zoom_start=13)#location - the center of the map, zoom_start - the resolution
-    for station in get_stations():
+    map = folium.Map(location=(45.750000, 4.850000), zoom_start=13)
+    stations_data = {}  # { marker_id: {e, m, s, b} } e lectrical, m echanical, s tands, b ikes
+
+    for i, station in enumerate(get_stations()):
         with open("stations.txt", "a") as f:
             f.write(str(station) + "\n")
-            f.close()
-        print("------------------------------")
-        print("\n")
-        location = [station["position"]["latitude"], station["position"]["longitude"]]
-        available_bikes = int(station["totalStands"]["availabilities"]["bikes"])
-        available_mechanical_bikes = int(station["totalStands"]["availabilities"]["mechanicalBikes"])
-        available_electric_bikes = int(station["totalStands"]["availabilities"]["electricalBikes"])
-        available_parking = int(station["totalStands"]["availabilities"]["stands"])
-        available_capacity = int(station["totalStands"]["capacity"])
-        texte = ("Station " + station["name"], "Vélov dispo : " + str(available_bikes))
+        name                 = station["name"]
+        location             = [station["position"]["latitude"], station["position"]["longitude"]]
+        available_bikes      = int(station["totalStands"]["availabilities"]["bikes"])
+        available_electrical = int(station["totalStands"]["availabilities"]["electricalBikes"])
+        available_mechanical = int(station["totalStands"]["availabilities"]["mechanicalBikes"])
+        available_stands     = int(station["totalStands"]["availabilities"]["stands"])
+        available_capacity   = int(station["totalStands"]["capacity"])
+
         html_popup = f"""
-        <h1> {station["name"]} </h1><br>
+        <div>
+        <h1> {name} </h1><br>
         <p>
         Vélov disponibles : {available_bikes}<br>
-        Electriques : {available_electric_bikes}<br>
-        Mécaniques : {available_mechanical_bikes}<br>
-        <strong>Parking disponibles : {available_parking}/{available_capacity}</strong>
+        Electriques : {available_electrical}<br>
+        Mécaniques : {available_mechanical}<br>
+        <strong>Parking disponibles : {available_stands}/{available_capacity}</strong>
         </p>
         <p>
         {station["address"]}
@@ -43,31 +41,43 @@ def load():
         <p>
         Dernière mise à jour : {station["lastUpdate"]}
         </p>
+        </div>
         """
+
         if available_bikes == 0:
-            print("Station " + station["name"] + " has " + str(available_bikes) + " bikes available.")
             status_color = "red"
-        elif available_bikes < 5 and available_bikes > 0:
-            print("Station " + station["name"] + " has " + str(available_bikes) + " bikes available.")
+        elif 0 < available_bikes < 5:
             status_color = "orange"
         elif available_bikes >= 5:
-            print("Station " + station["name"] + " has " + str(available_bikes) + " bikes available.")
             status_color = "green"
-        elif available_bikes == None:
-            print("Station " + station["name"] + " has no data available.")
-            status_color = "gray"
         else:
-            print("Station " + station["name"] + " has an unknown number of bikes available.")
-            status_color = "blue"
-        marqueur = folium.Marker(location = location, popup = html_popup, icon=folium.Icon(color=f"{status_color}"))
-        marqueur.add_to(map)
-    map.save("templates/map.html")
+            status_color = "gray"
 
+        marqueur = folium.Marker(
+            location = location,
+            popup    = html_popup,
+            icon     = folium.Icon(color=status_color)
+        )
+        marqueur.add_to(map)
+
+        # Stocke les données indexées par position dans le même ordre que Leaflet
+        stations_data[i] = {
+            "e": available_electrical,
+            "m": available_mechanical,
+            "s": available_stands,
+            "b": available_bikes,
+        }
+
+    # Injecte les données comme variable JS globale
+    data_script = f"<script>var STATIONS_DATA = {json.dumps(stations_data)};</script>"
+    map.get_root().html.add_child(folium.Element(data_script))
+    map.get_root().html.add_child(folium.Element(filter_html))
+    map.get_root().header.add_child(folium.Element('<link rel="stylesheet" href="/static/style.css">'))
+    map.save("templates/map.html")
 
 @app.route("/")
 def index():
     return flask.render_template("map.html")
-
 
 if __name__ == "__main__":
     setup()

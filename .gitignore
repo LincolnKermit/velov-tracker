@@ -2,4 +2,9 @@
 stations.txt
 templates/map.html
 __pycache__/
-__pycache__/*
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+.venv/
+venv/
