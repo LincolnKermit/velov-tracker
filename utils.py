@@ -6,9 +6,6 @@ contract = "lyon"
 
 print(jcd_api_key)
 
-
-
-
 def get_stations():
     headers = {
         "Accept": "application/json"
@@ -16,15 +13,3 @@ def get_stations():
     url = f"https://api.jcdecaux.com/vls/v3/stations?contract={contract}&apiKey={jcd_api_key}"
     response = requests.get(url, headers=headers)
     return json.loads(response.text)
-
-
-
-for station in get_stations():
-    print("------------------------------")
-    #print(station["number"])
-    #print(station["name"])
-    #print(station["address"])
-    #print(station["position"])
-    print(station)
-    print("------------------------------")
-    print("\n")
