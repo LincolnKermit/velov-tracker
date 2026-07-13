@@ -61,12 +61,14 @@ def update_readme(stations, timestamp):
         f"{README_START}\n"
         "<!-- This section is updated automatically every hour by the collect workflow. -->\n"
         "### 🚲 Latest update\n\n"
-        f"**Latest update:** {timestamp}\n\n"
+        # display the timestamp as HH:MM UTC on DD/MM/YYYY
+        f"**Latest update:** {timestamp.strftime('%H:%M UTC on %d/%m/%Y')}\n\n"
         f"- Electrical bikes available: **{electrical}**\n"
         f"- Mechanical bikes available: **{mechanical}**\n"
         f"- Total bikes available: **{bikes}**\n"
         f"- Free parking stands: **{stands}**\n"
         f"- Stations open: **{open_stations}/{len(stations)}**\n"
+        f"**Dynamic data powered by Github Actions 🤖**\n"
         f"{README_END}"
     )
 
