@@ -2,8 +2,10 @@ name: Collect velov data
 
 on:
   schedule:
-    # Runs at the top of every hour (UTC). GitHub may delay runs under load.
-    - cron: "0 * * * *"
+    # Runs at :23 every hour (UTC). Avoids the congested top-of-hour, which
+    # GitHub delays or silently drops under load. Scheduled runs are still
+    # best-effort and only fire from the default branch.
+    - cron: "23 * * * *"
   workflow_dispatch: {} # allow manual runs for testing
 
 # Never let two collection runs overlap and race on the commit.
@@ -49,11 +51,11 @@ jobs:
 
             python -m source.collect
 
-            if git diff --quiet -- data/history.csv README.md; then
+            if git diff --quiet -- data/history.csv README.md assets/availability.svg; then
               echo "No changes to commit."
               exit 0
             fi
-            git add data/history.csv README.md
+            git add data/history.csv README.md assets/availability.svg
             git commit -m "data: hourly Vélo'v snapshot [skip ci]"
 
             if git push; then

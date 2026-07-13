@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 PARIS_TZ = ZoneInfo("Europe/Paris")
 
 from source.utils import get_stations
+from source.chart import render as render_chart
 
 DATA_DIR = "data"
 CSV_PATH = os.path.join(DATA_DIR, "history.csv")
@@ -113,6 +114,7 @@ def main():
     print(f"Wrote {count} station rows at {timestamp} to {CSV_PATH}")
 
     update_readme(stations, collected_at)
+    render_chart()
 
 
 if __name__ == "__main__":

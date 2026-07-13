@@ -15,6 +15,12 @@
 **Dynamic data powered by Github Actions 🤖**
 <!-- LATEST:END -->
 
+### 📈 Availability by hour of day
+
+Average bikes available across Lyon for each hour — showing when the city runs lowest on bikes.
+
+![Average bikes available across Lyon by hour of day](assets/availability.svg)
+
 ## French version
 
 Ce projet a été réalisé afin de traquer la tendance de la disponibilité des stations Velo'v à Lyon au cours de la journée.
