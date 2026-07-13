@@ -2,8 +2,10 @@ name: Collect velov data
 
 on:
   schedule:
-  - cron: "0 * * * *"
+  - cron: '0 * * * *'
+  
   workflow_dispatch: {} # allow manual runs for testing
+  
 
 # Never let two collection runs overlap and race on the commit.
 concurrency:
