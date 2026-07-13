@@ -5,6 +5,9 @@ we can compute average availability for any given day-of-week and hour.
 import csv
 import os
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+PARIS_TZ = ZoneInfo("Europe/Paris")
 
 from source.utils import get_stations
 
@@ -64,8 +67,8 @@ def update_readme(stations, collected_at):
         f"{README_START}\n"
         "<!-- This section is updated automatically every hour by the collect workflow. -->\n"
         "### 🚲 Latest update\n\n"
-        # display the timestamp as HH:MM UTC on DD/MM/YYYY
-        f"**Latest update:** {collected_at.strftime('%H:%M UTC on %d/%m/%Y')}\n\n"
+        # display the timestamp in French local time as HH:MM on DD/MM/YYYY
+        f"**Latest update:** {collected_at.astimezone(PARIS_TZ).strftime('%H:%M on %d/%m/%Y')} (Local timezone)\n\n"
         f"- Electrical bikes available: **{electrical}**\n"
         f"- Mechanical bikes available: **{mechanical}**\n"
         f"- Total bikes available: **{bikes}**\n"
