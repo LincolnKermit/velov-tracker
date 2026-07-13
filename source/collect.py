@@ -66,7 +66,7 @@ def update_readme(stations, collected_at):
 
     block = (
         f"{README_START}\n"
-        "<!-- This section is updated automatically every hour by the collect workflow. -->\n"
+        "<!-- This section is updated automatically every 30 minutes by the collect workflow. -->\n"
         "### 🚲 Latest update\n\n"
         # display the timestamp in French local time as HH:MM on DD/MM/YYYY
         f"**Latest update:** {collected_at.astimezone(PARIS_TZ).strftime('%H:%M on %d/%m/%Y')} (Local timezone)\n\n"

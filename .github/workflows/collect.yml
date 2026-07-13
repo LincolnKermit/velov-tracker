@@ -2,10 +2,11 @@ name: Collect velov data
 
 on:
   schedule:
-    # Runs at :23 every hour (UTC). Avoids the congested top-of-hour, which
-    # GitHub delays or silently drops under load. Scheduled runs are still
-    # best-effort and only fire from the default branch.
-    - cron: "23 * * * *"
+    # Runs every 30 min at :23 and :53 (UTC). Off-peak minutes avoid the
+    # congested :00/:30 slots, which GitHub delays or silently drops under
+    # load. Scheduled runs are still best-effort and only fire from the
+    # default branch.
+    - cron: "23,53 * * * *"
   workflow_dispatch: {} # allow manual runs for testing
 
 # Never let two collection runs overlap and race on the commit.
