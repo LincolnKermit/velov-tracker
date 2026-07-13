@@ -33,8 +33,8 @@ WINDOW_HOURS = 24
 
 # Palette (validated light surface — reads on both GitHub light and dark themes
 # because the image carries its own background).
-SURFACE = "#fcfcfb"
-INK = "#0b0b0b"
+SURFACE = "#262626"
+INK = "#C2C2C2"
 MUTED = "#898781"
 GRID = "#e1e0d9"
 TOTAL = "#2a78d6"      # blue    — total bikes
