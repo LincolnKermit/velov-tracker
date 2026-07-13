@@ -30,23 +30,38 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Collect snapshot
+      - name: Collect snapshot and push
         env:
           JCD_API_KEY: ${{ secrets.JCD_API_KEY }}
-        run: python -m source.collect
-
-      - name: Commit and push data
-        env:
           BRANCH: ${{ github.ref_name }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- data/history.csv README.md; then
-            echo "No changes to commit."
-            exit 0
-          fi
-          git add data/history.csv README.md
-          git commit -m "data: hourly Vélo'v snapshot [skip ci]"
-          # Rebase on any concurrent commits before pushing.
-          git pull --rebase --autostash origin "$BRANCH"
-          git push
+
+          # history.csv is append-only and the README section is fully
+          # regenerated, so a rebase can never merge them cleanly. Instead we
+          # always sync to the tip of origin FIRST, then regenerate on top, so
+          # the push is a plain fast-forward. If the remote still moved between
+          # our sync and push, we discard, re-sync and regenerate — never rebase.
+          for attempt in 1 2 3; do
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+
+            python -m source.collect
+
+            if git diff --quiet -- data/history.csv README.md; then
+              echo "No changes to commit."
+              exit 0
+            fi
+            git add data/history.csv README.md
+            git commit -m "data: hourly Vélo'v snapshot [skip ci]"
+
+            if git push; then
+              echo "Pushed on attempt $attempt."
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt); remote moved, re-syncing."
+          done
+
+          echo "Failed to push after 3 attempts."
+          exit 1
