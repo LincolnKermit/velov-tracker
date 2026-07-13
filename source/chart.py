@@ -35,7 +35,7 @@ INK = "#0b0b0b"
 MUTED = "#898781"
 GRID = "#e1e0d9"
 TOTAL = "#2a78d6"      # blue    — total bikes
-ELECTRICAL = "#4a3aa7"  # violet  — electrical bikes
+ELECTRICAL = "#007f1c"  # green   — electrical bikes (rgb 0,127,28)
 MECHANICAL = "#eb6834"  # orange  — mechanical bikes
 LOW = "#d03b3b"        # status critical — marks the lowest total hour
 
