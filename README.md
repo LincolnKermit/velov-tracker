@@ -15,11 +15,11 @@
 **Dynamic data powered by Github Actions 🤖**
 <!-- LATEST:END -->
 
-### 📈 Availability by hour of day
+### 📈 Availability over the last 24 hours
 
-Average bikes available across Lyon for each hour — showing when the city runs lowest on bikes.
+Total, electrical and mechanical bikes available across Lyon — the lowest point is marked in red.
 
-![Average bikes available across Lyon by hour of day](assets/availability.svg)
+![Bikes available across Lyon over the last 24 hours](assets/availability.svg)
 
 ## French version
 
