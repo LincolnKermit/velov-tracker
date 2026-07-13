@@ -1,0 +1,52 @@
+name: Collect Vélo'v availability
+
+on:
+  schedule:
+    # Runs at the top of every hour (UTC). GitHub may delay runs under load.
+    - cron: "0 * * * *"
+  workflow_dispatch: {} # allow manual runs for testing
+
+# Never let two collection runs overlap and race on the commit.
+concurrency:
+  group: collect-velov
+  cancel-in-progress: false
+
+permissions:
+  contents: write # required to commit the data back to the repo
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Collect snapshot
+        env:
+          JCD_API_KEY: ${{ secrets.JCD_API_KEY }}
+        run: python -m source.collect
+
+      - name: Commit and push data
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- data/history.csv README.md; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git add data/history.csv README.md
+          git commit -m "data: hourly Vélo'v snapshot [skip ci]"
+          # Rebase on any concurrent commits before pushing.
+          git pull --rebase --autostash origin "$BRANCH"
+          git push

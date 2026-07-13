@@ -1,5 +1,18 @@
 # README
 
+<!-- LATEST:START -->
+<!-- This section is updated automatically every hour by the collect workflow. -->
+### 🚲 Latest update
+
+**Latest update:** 2026-07-13T08:25:25Z
+
+- Electrical bikes available: **1890**
+- Mechanical bikes available: **1966**
+- Total bikes available: **3868**
+- Free parking stands: **5337**
+- Stations open: **453/454**
+<!-- LATEST:END -->
+
 ## French version
 
 Ce projet a été réalisé afin de traquer la tendance de la disponibilité des stations Velo'v à Lyon au cours de la journée.
