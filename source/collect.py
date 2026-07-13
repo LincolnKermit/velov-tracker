@@ -49,8 +49,11 @@ def build_rows(stations, timestamp):
         }
 
 
-def update_readme(stations, timestamp):
-    """Rewrite the LATEST section of the README with city-wide totals."""
+def update_readme(stations, collected_at):
+    """Rewrite the LATEST section of the README with city-wide totals.
+
+    ``collected_at`` is a timezone-aware datetime (not the CSV string).
+    """
     electrical = sum(s["totalStands"]["availabilities"]["electricalBikes"] for s in stations)
     mechanical = sum(s["totalStands"]["availabilities"]["mechanicalBikes"] for s in stations)
     bikes = sum(s["totalStands"]["availabilities"]["bikes"] for s in stations)
@@ -62,12 +65,12 @@ def update_readme(stations, timestamp):
         "<!-- This section is updated automatically every hour by the collect workflow. -->\n"
         "### 🚲 Latest update\n\n"
         # display the timestamp as HH:MM UTC on DD/MM/YYYY
-        f"**Latest update:** {timestamp.strftime('%H:%M UTC on %d/%m/%Y')}\n\n"
+        f"**Latest update:** {collected_at.strftime('%H:%M UTC on %d/%m/%Y')}\n\n"
         f"- Electrical bikes available: **{electrical}**\n"
         f"- Mechanical bikes available: **{mechanical}**\n"
         f"- Total bikes available: **{bikes}**\n"
         f"- Free parking stands: **{stands}**\n"
-        f"- Stations open: **{open_stations}/{len(stations)}**\n"
+        f"- Stations open: **{open_stations}/{len(stations)}**\n\n"
         f"**Dynamic data powered by Github Actions 🤖**\n"
         f"{README_END}"
     )
@@ -89,7 +92,8 @@ def update_readme(stations, timestamp):
 
 def main():
     stations = get_stations()
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    collected_at = datetime.now(timezone.utc)
+    timestamp = collected_at.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     os.makedirs(DATA_DIR, exist_ok=True)
     file_exists = os.path.isfile(CSV_PATH)
@@ -105,7 +109,7 @@ def main():
 
     print(f"Wrote {count} station rows at {timestamp} to {CSV_PATH}")
 
-    update_readme(stations, timestamp)
+    update_readme(stations, collected_at)
 
 
 if __name__ == "__main__":
