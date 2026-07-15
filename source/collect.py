@@ -11,6 +11,7 @@ PARIS_TZ = ZoneInfo("Europe/Paris")
 
 from source.utils import get_stations
 from source.chart import render as render_chart
+from source.chart import render_by_arrondissement as render_arr_chart
 
 DATA_DIR = "data"
 CSV_PATH = os.path.join(DATA_DIR, "history.csv")
@@ -115,6 +116,7 @@ def main():
 
     update_readme(stations, collected_at)
     render_chart()
+    render_arr_chart()
 
 
 if __name__ == "__main__":

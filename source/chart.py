@@ -27,9 +27,24 @@ PARIS_TZ = ZoneInfo("Europe/Paris")
 CSV_PATH = os.path.join("data", "history.csv")
 ASSETS_DIR = "assets"
 CHART_PATH = os.path.join(ASSETS_DIR, "availability.svg")
+ARR_CHART_PATH = os.path.join(ASSETS_DIR, "availability_by_arrondissement.svg")
 
 # Rolling window: only the most recent snapshots are plotted.
 WINDOW_HOURS = 24
+
+# Distinct hue per Lyon arrondissement (1er → 9e). Chosen to stay legible
+# against the dark SURFACE and to keep neighbouring lines separable.
+ARR_COLORS = {
+    1: "#2a78d6",  # blue
+    2: "#eb6834",  # orange
+    3: "#007f1c",  # green
+    4: "#d03b3b",  # red
+    5: "#9b5de5",  # purple
+    6: "#00b4b4",  # teal
+    7: "#e0b400",  # gold
+    8: "#e05299",  # pink
+    9: "#8a6d3b",  # brown
+}
 
 # Palette (validated light surface — reads on both GitHub light and dark themes
 # because the image carries its own background).
@@ -76,6 +91,101 @@ def load_recent():
         mechanical.append(snap_mech[ts])
 
     return times, total, electrical, mechanical
+
+
+def arrondissement_of(number):
+    """Map a Vélo'v station number to its Lyon arrondissement (1-9), or None.
+
+    Station numbers are prefixed by district: a single leading digit 1-9 within
+    a 4-digit number is one of Lyon's nine arrondissements (e.g. 2010 -> 2e,
+    5015 -> 5e). Numbers >= 10000 are Villeurbanne / surrounding communes and
+    are excluded.
+    """
+    try:
+        n = int(number)
+    except (TypeError, ValueError):
+        return None
+    if 1000 <= n <= 9999:
+        return n // 1000
+    return None
+
+
+def load_recent_by_arrondissement():
+    """Read the CSV into chronological per-snapshot electrical-bike totals for
+    each Lyon arrondissement over the last WINDOW_HOURS.
+
+    Returns (times, series) where ``times`` is a sorted list of Europe/Paris
+    datetimes and ``series`` maps arrondissement number -> list of electrical
+    bike counts parallel to ``times``.
+    """
+    # {timestamp: {arrondissement: electrical bikes}}
+    snap = defaultdict(lambda: defaultdict(int))
+    with open(CSV_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            arr = arrondissement_of(row["number"])
+            if arr is None:
+                continue
+            snap[row["timestamp_utc"]][arr] += int(row["electrical"])
+
+    if not snap:
+        return [], {}
+
+    cutoff = datetime.now(timezone.utc).timestamp() - WINDOW_HOURS * 3600
+
+    times = []
+    series = {arr: [] for arr in sorted(ARR_COLORS)}
+    for ts in sorted(snap):
+        dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        if dt.timestamp() < cutoff:
+            continue
+        times.append(dt.astimezone(PARIS_TZ))
+        for arr in series:
+            series[arr].append(snap[ts].get(arr, 0))
+
+    return times, series
+
+
+def render_by_arrondissement():
+    times, series = load_recent_by_arrondissement()
+    if not times:
+        print("No data to plot; skipping arrondissement chart.")
+        return
+
+    fig, ax = plt.subplots(figsize=(9, 3.6), dpi=100)
+    fig.patch.set_facecolor(SURFACE)
+    ax.set_facecolor(SURFACE)
+
+    for arr in sorted(series):
+        ax.plot(times, series[arr], color=ARR_COLORS[arr], linewidth=2,
+                marker="o", markersize=3, label=f"{arr}e")
+
+    ax.set_title("Electrical bikes available by arrondissement — last 24 hours",
+                 color=INK, fontsize=13, fontweight="bold", loc="left", pad=12)
+
+    # Recessive chrome (matches the city-wide chart).
+    ax.grid(True, color=GRID, linewidth=0.8)
+    ax.set_axisbelow(True)
+    for spine in ("top", "right", "left"):
+        ax.spines[spine].set_visible(False)
+    ax.spines["bottom"].set_color(GRID)
+    ax.tick_params(colors=MUTED, labelsize=9, length=0)
+    ax.margins(x=0.02)
+    ax.set_ylim(bottom=0)
+
+    ax.xaxis.set_major_locator(mdates.AutoDateLocator(tz=PARIS_TZ))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Hh\n%d/%m", tz=PARIS_TZ))
+
+    legend = ax.legend(loc="upper left", frameon=False, fontsize=9,
+                       labelcolor=INK, handlelength=1.4, ncol=9,
+                       columnspacing=0.9)
+    legend.set_zorder(6)
+
+    fig.subplots_adjust(left=0.06, right=0.97, top=0.86, bottom=0.18)
+
+    os.makedirs(ASSETS_DIR, exist_ok=True)
+    fig.savefig(ARR_CHART_PATH, format="svg", facecolor=SURFACE)
+    plt.close(fig)
+    print(f"Wrote last-24h arrondissement chart with {len(times)} points to {ARR_CHART_PATH}")
 
 
 def render():
@@ -134,3 +244,4 @@ def render():
 
 if __name__ == "__main__":
     render()
+    render_by_arrondissement()

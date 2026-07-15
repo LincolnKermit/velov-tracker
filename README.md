@@ -21,6 +21,12 @@ Total, electrical and mechanical bikes available across Lyon — the lowest poin
 
 ![Bikes available across Lyon over the last 24 hours](assets/availability.svg)
 
+### 🗺️ Electrical bikes by arrondissement over the last 24 hours
+
+Electrical Vélo'v bikes available in each of Lyon's nine arrondissements — one line per arrondissement.
+
+![Electrical bikes available by arrondissement over the last 24 hours](assets/availability_by_arrondissement.svg)
+
 ## French version
 
 Ce projet a été réalisé afin de traquer la tendance de la disponibilité des stations Velo'v à Lyon au cours de la journée.

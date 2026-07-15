@@ -50,11 +50,11 @@ jobs:
 
             python -m source.collect
 
-            if git diff --quiet -- data/history.csv README.md assets/availability.svg; then
+            if git diff --quiet -- data/history.csv README.md assets/availability.svg assets/availability_by_arrondissement.svg; then
               echo "No changes to commit."
               exit 0
             fi
-            git add data/history.csv README.md assets/availability.svg
+            git add data/history.csv README.md assets/availability.svg assets/availability_by_arrondissement.svg
             git commit -m "data: hourly Vélo'v snapshot [skip ci]"
 
             if git push; then
