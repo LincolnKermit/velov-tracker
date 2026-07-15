@@ -4,12 +4,12 @@
 <!-- This section is updated automatically every 15 minutes by the collect workflow. -->
 ### 🚲 Latest update
 
-**Latest update:** 11:56 on 15/07/2026 (Local timezone)
+**Latest update:** 13:26 on 15/07/2026 (Local timezone)
 
-- Electrical bikes available: **1974**
-- Mechanical bikes available: **1972**
-- Total bikes available: **3965**
-- Free parking stands: **5291**
+- Electrical bikes available: **1850**
+- Mechanical bikes available: **1929**
+- Total bikes available: **3797**
+- Free parking stands: **5442**
 - Stations open: **453/454**
 
 **Dynamic data powered by Github Actions 🤖**
@@ -38,6 +38,9 @@ Ce projet a été réalisé afin de traquer la tendance de la disponibilité des
     - Nombre de velo'v mécaniques disponibles
     - Nombre de velo'v éléctriques disponibles
     - Nombre de places disponible
+    - Ajouter un système de filtre/tri sur la page afin de trier les résultats.
+    - API disponible - 24h d'historique d'une station ( localhost:5000/history/<station_id> )
+    - GitHub Actions pour recueillir automatiquement des données.
 
 ### Roadmap:
 
