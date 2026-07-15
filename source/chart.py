@@ -37,28 +37,28 @@ ARR_CHART_PATH = os.path.join(ASSETS_DIR, "availability_by_arrondissement.svg")
 # each get a unique name and never clobber one another.
 STATION_HISTORY_DIR = os.path.join("static", "history")
 
-# Palette (validated light surface — reads on both GitHub light and dark themes
+# Palette (validated dark surface — reads on both GitHub light and dark themes
 # because the image carries its own background).
-SURFACE = "#fcfcfb"
-INK = "#0b0b0b"
+SURFACE = "#262626"
+INK = "#C2C2C2"
 MUTED = "#898781"
 GRID = "#e1e0d9"
 TOTAL = "#2a78d6"      # blue    — total bikes
-ELECTRICAL = "#7c3aed"  # violet  — electrical bikes
+ELECTRICAL = "#007f1c"  # green   — electrical bikes (rgb 0,127,28)
 MECHANICAL = "#eb6834"  # orange  — mechanical bikes
-LOW = "#d03b3b"        # status critical — marks the lowest total hour
+LOW = "#d03b3b"        # status critical — marks the lowest total point
 
 # Distinct hue per Lyon arrondissement (1er → 9e). Chosen to stay legible
-# against the light SURFACE and to keep neighbouring lines separable.
+# against the dark SURFACE and to keep neighbouring lines separable.
 ARR_COLORS = {
     1: "#2a78d6",  # blue
     2: "#eb6834",  # orange
     3: "#007f1c",  # green
     4: "#d03b3b",  # red
-    5: "#7c3aed",  # violet
-    6: "#0f9b8e",  # teal
-    7: "#b8860b",  # dark gold
-    8: "#c2286e",  # magenta
+    5: "#9b5de5",  # purple
+    6: "#00b4b4",  # teal
+    7: "#e0b400",  # gold
+    8: "#e05299",  # pink
     9: "#8a6d3b",  # brown
 }
 
