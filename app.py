@@ -1,6 +1,7 @@
 import folium, flask, os, webbrowser, json
 from source.utils import get_stations
 from source.ux import filter_html
+from source.chart import *
 
 app = flask.Flask(__name__)
 
@@ -78,6 +79,15 @@ def load():
 @app.route("/")
 def index():
     return flask.render_template("map.html")
+
+
+@app.route("/history/<station_id>", methods=["GET"])
+def history(station_id):
+    svg_path = render_station(station_id)
+    if svg_path is None:
+        return flask.abort(404, description="No data for this station in the last 24 hours.")
+    return flask.send_file(svg_path, mimetype="image/svg+xml")
+
 
 if __name__ == "__main__":
     setup()

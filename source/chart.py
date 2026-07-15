@@ -1,9 +1,10 @@
-"""Render a chart of Vélo'v availability over the last 24 hours from
+"""Render a chart of average Vélo'v availability by hour of day from
 data/history.csv into assets/availability.svg.
 
-Each snapshot is plotted chronologically (total / electrical / mechanical bikes
-available across Lyon), so the line always shows the most recent 24 hours of
-movement. The lowest-total point is highlighted.
+Every hourly snapshot is bucketed by its local (Europe/Paris) hour and the
+city-wide total bikes available is averaged across all collected days, giving a
+typical 24-hour profile — so you can see at which hours the fewest bikes are
+available.
 
 Run standalone (``python -m source.chart``) or via ``source.collect`` after a
 snapshot is appended. The image is regenerated in place every run, so the README
@@ -12,6 +13,7 @@ commit.
 """
 import csv
 import os
+import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -24,47 +26,35 @@ import matplotlib.pyplot as plt
 
 PARIS_TZ = ZoneInfo("Europe/Paris")
 
+# Rolling window used by the per-station chart.
+WINDOW_HOURS = 24
+
 CSV_PATH = os.path.join("data", "history.csv")
 ASSETS_DIR = "assets"
 CHART_PATH = os.path.join(ASSETS_DIR, "availability.svg")
-ARR_CHART_PATH = os.path.join(ASSETS_DIR, "availability_by_arrondissement.svg")
-
-# Rolling window: only the most recent snapshots are plotted.
-WINDOW_HOURS = 24
-
-# Distinct hue per Lyon arrondissement (1er → 9e). Chosen to stay legible
-# against the dark SURFACE and to keep neighbouring lines separable.
-ARR_COLORS = {
-    1: "#2a78d6",  # blue
-    2: "#eb6834",  # orange
-    3: "#007f1c",  # green
-    4: "#d03b3b",  # red
-    5: "#9b5de5",  # purple
-    6: "#00b4b4",  # teal
-    7: "#e0b400",  # gold
-    8: "#e05299",  # pink
-    9: "#8a6d3b",  # brown
-}
+# Per-station charts are generated on demand (one file per request) so they
+# each get a unique name and never clobber one another.
+STATION_HISTORY_DIR = os.path.join("static", "history")
 
 # Palette (validated light surface — reads on both GitHub light and dark themes
 # because the image carries its own background).
-SURFACE = "#262626"
-INK = "#C2C2C2"
+SURFACE = "#fcfcfb"
+INK = "#0b0b0b"
 MUTED = "#898781"
 GRID = "#e1e0d9"
 TOTAL = "#2a78d6"      # blue    — total bikes
-ELECTRICAL = "#007f1c"  # green   — electrical bikes (rgb 0,127,28)
+ELECTRICAL = "#7c3aed"  # violet  — electrical bikes
 MECHANICAL = "#eb6834"  # orange  — mechanical bikes
-LOW = "#d03b3b"        # status critical — marks the lowest total point
+LOW = "#d03b3b"        # status critical — marks the lowest total hour
 
 
-def load_recent():
-    """Read the CSV into chronological per-snapshot city-wide totals for the
-    last WINDOW_HOURS.
+def load_hourly_profile():
+    """Aggregate the CSV into average city-wide availability per hour of day.
 
-    Returns (times, total, electrical, mechanical): parallel lists sorted by
-    time, with times as Europe/Paris datetimes.
+    Returns (hours, total, electrical, mechanical): parallel lists over the
+    local hours (0-23) that have at least one snapshot, sorted ascending.
     """
+    # For each snapshot timestamp, the city-wide totals available.
     snap_total = defaultdict(int)
     snap_elec = defaultdict(int)
     snap_mech = defaultdict(int)
@@ -75,91 +65,84 @@ def load_recent():
             snap_elec[ts] += int(row["electrical"])
             snap_mech[ts] += int(row["mechanical"])
 
-    if not snap_total:
-        return [], [], [], []
-
-    cutoff = datetime.now(timezone.utc).timestamp() - WINDOW_HOURS * 3600
-
-    times, total, electrical, mechanical = [], [], [], []
-    for ts in sorted(snap_total):
+    # Bucket each snapshot by its local hour of day, then average per hour.
+    sums = defaultdict(lambda: [0.0, 0.0, 0.0])
+    counts = defaultdict(int)
+    for ts in snap_total:
         dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-        if dt.timestamp() < cutoff:
-            continue
-        times.append(dt.astimezone(PARIS_TZ))
-        total.append(snap_total[ts])
-        electrical.append(snap_elec[ts])
-        mechanical.append(snap_mech[ts])
+        hour = dt.astimezone(PARIS_TZ).hour
+        sums[hour][0] += snap_total[ts]
+        sums[hour][1] += snap_elec[ts]
+        sums[hour][2] += snap_mech[ts]
+        counts[hour] += 1
 
-    return times, total, electrical, mechanical
+    hours = sorted(sums)
+    total = [sums[h][0] / counts[h] for h in hours]
+    electrical = [sums[h][1] / counts[h] for h in hours]
+    mechanical = [sums[h][2] / counts[h] for h in hours]
+    return hours, total, electrical, mechanical
 
 
-def arrondissement_of(number):
-    """Map a Vélo'v station number to its Lyon arrondissement (1-9), or None.
+def load_station_recent(station_id):
+    """Read the CSV into chronological electrical/mechanical availability for a
+    single station over the last WINDOW_HOURS.
 
-    Station numbers are prefixed by district: a single leading digit 1-9 within
-    a 4-digit number is one of Lyon's nine arrondissements (e.g. 2010 -> 2e,
-    5015 -> 5e). Numbers >= 10000 are Villeurbanne / surrounding communes and
-    are excluded.
+    Returns (name, times, electrical, mechanical): the station's display name
+    and three parallel lists sorted by time, with times as Europe/Paris
+    datetimes.
     """
-    try:
-        n = int(number)
-    except (TypeError, ValueError):
-        return None
-    if 1000 <= n <= 9999:
-        return n // 1000
-    return None
-
-
-def load_recent_by_arrondissement():
-    """Read the CSV into chronological per-snapshot electrical-bike totals for
-    each Lyon arrondissement over the last WINDOW_HOURS.
-
-    Returns (times, series) where ``times`` is a sorted list of Europe/Paris
-    datetimes and ``series`` maps arrondissement number -> list of electrical
-    bike counts parallel to ``times``.
-    """
-    # {timestamp: {arrondissement: electrical bikes}}
-    snap = defaultdict(lambda: defaultdict(int))
+    station_id = str(station_id)
+    name = None
+    rows = []  # (utc datetime, electrical, mechanical)
     with open(CSV_PATH, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            arr = arrondissement_of(row["number"])
-            if arr is None:
+            if row["number"] != station_id:
                 continue
-            snap[row["timestamp_utc"]][arr] += int(row["electrical"])
+            name = row["name"]
+            dt = datetime.strptime(row["timestamp_utc"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            rows.append((dt, int(row["electrical"]), int(row["mechanical"])))
 
-    if not snap:
-        return [], {}
+    if not rows:
+        return name, [], [], []
 
     cutoff = datetime.now(timezone.utc).timestamp() - WINDOW_HOURS * 3600
+    rows.sort(key=lambda r: r[0])
 
-    times = []
-    series = {arr: [] for arr in sorted(ARR_COLORS)}
-    for ts in sorted(snap):
-        dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    times, electrical, mechanical = [], [], []
+    for dt, elec, mech in rows:
         if dt.timestamp() < cutoff:
             continue
         times.append(dt.astimezone(PARIS_TZ))
-        for arr in series:
-            series[arr].append(snap[ts].get(arr, 0))
+        electrical.append(elec)
+        mechanical.append(mech)
 
-    return times, series
+    return name, times, electrical, mechanical
 
 
-def render_by_arrondissement():
-    times, series = load_recent_by_arrondissement()
+def render_station(station_id):
+    """Render electrical/mechanical availability for a single station over the
+    last 24 hours and save it under ``static/history/<uuid>.svg``.
+
+    Returns the path to the written SVG, or None if the station has no data in
+    the window (so the caller can 404 / show a placeholder).
+    """
+    name, times, electrical, mechanical = load_station_recent(station_id)
     if not times:
-        print("No data to plot; skipping arrondissement chart.")
-        return
+        print(f"No data for station {station_id}; skipping chart.")
+        return None
+
+    label = name or f"Station {station_id}"
 
     fig, ax = plt.subplots(figsize=(9, 3.6), dpi=100)
     fig.patch.set_facecolor(SURFACE)
     ax.set_facecolor(SURFACE)
 
-    for arr in sorted(series):
-        ax.plot(times, series[arr], color=ARR_COLORS[arr], linewidth=2,
-                marker="o", markersize=3, label=f"{arr}e")
+    ax.plot(times, electrical, color=ELECTRICAL, linewidth=2, marker="o",
+            markersize=4, label="Electrical")
+    ax.plot(times, mechanical, color=MECHANICAL, linewidth=2, marker="o",
+            markersize=4, label="Mechanical")
 
-    ax.set_title("Electrical bikes available by arrondissement — last 24 hours",
+    ax.set_title(f"Bikes available at {label} — last 24 hours",
                  color=INK, fontsize=13, fontweight="bold", loc="left", pad=12)
 
     # Recessive chrome (matches the city-wide chart).
@@ -176,21 +159,23 @@ def render_by_arrondissement():
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Hh\n%d/%m", tz=PARIS_TZ))
 
     legend = ax.legend(loc="upper left", frameon=False, fontsize=9,
-                       labelcolor=INK, handlelength=1.4, ncol=9,
-                       columnspacing=0.9)
+                       labelcolor=INK, handlelength=1.4, ncol=2,
+                       columnspacing=1.2)
     legend.set_zorder(6)
 
     fig.subplots_adjust(left=0.06, right=0.97, top=0.86, bottom=0.18)
 
-    os.makedirs(ASSETS_DIR, exist_ok=True)
-    fig.savefig(ARR_CHART_PATH, format="svg", facecolor=SURFACE)
+    os.makedirs(STATION_HISTORY_DIR, exist_ok=True)
+    out_path = os.path.join(STATION_HISTORY_DIR, f"{uuid.uuid4()}.svg")
+    fig.savefig(out_path, format="svg", facecolor=SURFACE)
     plt.close(fig)
-    print(f"Wrote last-24h arrondissement chart with {len(times)} points to {ARR_CHART_PATH}")
+    print(f"Wrote station {station_id} chart with {len(times)} points to {out_path}")
+    return out_path
 
 
 def render():
-    times, total, electrical, mechanical = load_recent()
-    if not times:
+    hours, total, electrical, mechanical = load_hourly_profile()
+    if not hours:
         print("No data to plot; skipping chart.")
         return
 
@@ -198,22 +183,28 @@ def render():
     fig.patch.set_facecolor(SURFACE)
     ax.set_facecolor(SURFACE)
 
-    ax.plot(times, total, color=TOTAL, linewidth=2.4, marker="o",
+    ax.plot(hours, total, color=TOTAL, linewidth=2.4, marker="o",
             markersize=5, label="Total", zorder=4)
-    ax.plot(times, electrical, color=ELECTRICAL, linewidth=2, marker="o",
+    ax.plot(hours, electrical, color=ELECTRICAL, linewidth=2, marker="o",
             markersize=4, label="Electrical")
-    ax.plot(times, mechanical, color=MECHANICAL, linewidth=2, marker="o",
+    ax.plot(hours, mechanical, color=MECHANICAL, linewidth=2, marker="o",
             markersize=4, label="Mechanical")
 
-    # Highlight the moment the fewest total bikes were available.
+    # Highlight the hour with the fewest total bikes — the whole point of the
+    # chart.
     low_idx = min(range(len(total)), key=lambda i: total[i])
-    low_t, low_val = times[low_idx], total[low_idx]
-    ax.plot(low_t, low_val, color=LOW, marker="o", markersize=8, zorder=5)
-    ax.annotate(f"Lowest: {low_val} at {low_t.strftime('%Hh%M')}",
-                (low_t, low_val), color=LOW, fontsize=9, fontweight="bold",
+    low_hour, low_val = hours[low_idx], total[low_idx]
+    ax.plot(low_hour, low_val, color=LOW, marker="o", markersize=8, zorder=5)
+    ax.annotate(f"Lowest total: {int(round(low_val))} at {low_hour:02d}h",
+                (low_hour, low_val), color=LOW, fontsize=9, fontweight="bold",
                 xytext=(0, -16), textcoords="offset points", ha="center")
 
-    ax.set_title("Bikes available across Lyon — last 24 hours",
+    legend = ax.legend(loc="upper right", frameon=False, fontsize=9,
+                       labelcolor=INK, handlelength=1.4, ncol=3,
+                       columnspacing=1.2)
+    legend.set_zorder(6)
+
+    ax.set_title("Average bikes available across Lyon, by hour of day",
                  color=INK, fontsize=13, fontweight="bold", loc="left", pad=12)
 
     # Recessive chrome.
@@ -223,25 +214,20 @@ def render():
         ax.spines[spine].set_visible(False)
     ax.spines["bottom"].set_color(GRID)
     ax.tick_params(colors=MUTED, labelsize=9, length=0)
-    ax.margins(x=0.02)
     ax.set_ylim(bottom=0)
 
-    ax.xaxis.set_major_locator(mdates.AutoDateLocator(tz=PARIS_TZ))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Hh\n%d/%m", tz=PARIS_TZ))
+    # Full 24-hour axis so the daily rhythm is always framed the same way.
+    ax.set_xlim(-0.5, 23.5)
+    ax.set_xticks(range(0, 24, 2))
+    ax.set_xticklabels([f"{h:02d}h" for h in range(0, 24, 2)])
 
-    legend = ax.legend(loc="lower left", frameon=False, fontsize=9,
-                       labelcolor=INK, handlelength=1.4, ncol=3,
-                       columnspacing=1.2)
-    legend.set_zorder(6)
-
-    fig.subplots_adjust(left=0.06, right=0.97, top=0.86, bottom=0.18)
+    fig.subplots_adjust(left=0.06, right=0.97, top=0.86, bottom=0.15)
 
     os.makedirs(ASSETS_DIR, exist_ok=True)
     fig.savefig(CHART_PATH, format="svg", facecolor=SURFACE)
     plt.close(fig)
-    print(f"Wrote last-24h chart with {len(times)} points to {CHART_PATH}")
+    print(f"Wrote hourly profile with {len(hours)} hours to {CHART_PATH}")
 
 
 if __name__ == "__main__":
     render()
-    render_by_arrondissement()
