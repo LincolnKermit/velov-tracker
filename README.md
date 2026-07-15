@@ -4,12 +4,12 @@
 <!-- This section is updated automatically every 15 minutes by the collect workflow. -->
 ### 🚲 Latest update
 
-**Latest update:** 09:10 on 15/07/2026 (Local timezone)
+**Latest update:** 11:10 on 15/07/2026 (Local timezone)
 
-- Electrical bikes available: **1592**
-- Mechanical bikes available: **1830**
-- Total bikes available: **3444**
-- Free parking stands: **5712**
+- Electrical bikes available: **1894**
+- Mechanical bikes available: **1954**
+- Total bikes available: **3870**
+- Free parking stands: **5354**
 - Stations open: **453/454**
 
 **Dynamic data powered by Github Actions 🤖**
