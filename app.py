@@ -89,6 +89,14 @@ def history(station_id):
     return flask.send_file(svg_path, mimetype="image/svg+xml")
 
 
+@app.route("/history/<station_id>/all" or "/history/<station_id>/all/", methods=["GET"])
+def history_all(station_id):
+    svg_path = render_station_all(station_id)
+    if svg_path is None:
+        return flask.abort(404, description="No data for this station.")
+    return flask.send_file(svg_path, mimetype="image/svg+xml")
+
+
 if __name__ == "__main__":
     setup()
     load()

@@ -43,10 +43,11 @@ SURFACE = "#262626"
 INK = "#C2C2C2"
 MUTED = "#898781"
 GRID = "#e1e0d9"
-TOTAL = "#2a78d6"      # blue    — total bikes
+TOTAL = "#3d3d3d"      # blue    — total bikes
 ELECTRICAL = "#007f1c"  # green   — electrical bikes (rgb 0,127,28)
 MECHANICAL = "#eb6834"  # orange  — mechanical bikes
 LOW = "#d03b3b"        # status critical — marks the lowest total point
+MAX_CAPACITY_LINE = "#eb4934"
 
 # Distinct hue per Lyon arrondissement (1er → 9e). Chosen to stay legible
 # against the dark SURFACE and to keep neighbouring lines separable.
@@ -197,6 +198,45 @@ def load_station_recent(station_id):
     """Read the CSV into chronological electrical/mechanical availability for a
     single station over the last WINDOW_HOURS.
 
+    Returns (name, times, electrical, mechanical, capacity): the station's
+    display name, three parallel lists sorted by time (times as Europe/Paris
+    datetimes), and the station's parking capacity (total docks) — the largest
+    capacity seen in the window, since it can occasionally change.
+    """
+    station_id = str(station_id)
+    name = None
+    rows = []  # (utc datetime, electrical, mechanical, capacity)
+    with open(CSV_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            if row["number"] != station_id:
+                continue
+            name = row["name"]
+            dt = datetime.strptime(row["timestamp_utc"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            rows.append((dt, int(row["electrical"]), int(row["mechanical"]), int(row["capacity"])))
+
+    if not rows:
+        return name, [], [], [], 0
+
+    cutoff = datetime.now(timezone.utc).timestamp() - WINDOW_HOURS * 3600
+    rows.sort(key=lambda r: r[0])
+
+    times, electrical, mechanical = [], [], []
+    max_capacity = 0
+    for dt, elec, mech, cap in rows:
+        if dt.timestamp() < cutoff:
+            continue
+        times.append(dt.astimezone(PARIS_TZ))
+        electrical.append(elec)
+        mechanical.append(mech)
+        max_capacity = max(max_capacity, cap)
+
+    return name, times, electrical, mechanical, max_capacity
+
+
+def load_station_all(station_id):
+    """Read the CSV into chronological electrical/mechanical availability for a
+    single station over its entire recorded history (no time window).
+
     Returns (name, times, electrical, mechanical): the station's display name
     and three parallel lists sorted by time, with times as Europe/Paris
     datetimes.
@@ -215,18 +255,73 @@ def load_station_recent(station_id):
     if not rows:
         return name, [], [], []
 
-    cutoff = datetime.now(timezone.utc).timestamp() - WINDOW_HOURS * 3600
     rows.sort(key=lambda r: r[0])
 
-    times, electrical, mechanical = [], [], []
-    for dt, elec, mech in rows:
-        if dt.timestamp() < cutoff:
-            continue
-        times.append(dt.astimezone(PARIS_TZ))
-        electrical.append(elec)
-        mechanical.append(mech)
-
+    times = [dt.astimezone(PARIS_TZ) for dt, _, _ in rows]
+    electrical = [elec for _, elec, _ in rows]
+    mechanical = [mech for _, _, mech in rows]
     return name, times, electrical, mechanical
+
+
+def render_station_all(station_id):
+    """Render electrical/mechanical availability for a single station over its
+    whole recorded history and save it under ``static/history/<uuid>.svg``.
+
+    Returns the path to the written SVG, or None if the station has no data at
+    all (so the caller can 404 / show a placeholder).
+    """
+    name, times, electrical, mechanical = load_station_all(station_id)
+    if not times:
+        print(f"No data for station {station_id}; skipping all-time chart.")
+        return None
+
+    label = name or f"Station {station_id}"
+
+    # With many points, per-point markers turn into noise — drop them past a
+    # threshold and let the line carry the shape.
+    marker = "o" if len(times) <= 96 else None
+
+    fig, ax = plt.subplots(figsize=(9, 3.6), dpi=100)
+    fig.patch.set_facecolor(SURFACE)
+    ax.set_facecolor(SURFACE)
+
+    ax.plot(times, electrical, color=ELECTRICAL, linewidth=1.6, marker=marker,
+            markersize=3, label="Electrical")
+    ax.plot(times, mechanical, color=MECHANICAL, linewidth=1.6, marker=marker,
+            markersize=3, label="Mechanical")
+
+    ax.set_title(f"Bikes available at {label} — all time",
+                 color=INK, fontsize=13, fontweight="bold", loc="left", pad=12)
+
+    # Recessive chrome (matches the city-wide chart).
+    ax.grid(True, color=GRID, linewidth=0.8)
+    ax.set_axisbelow(True)
+    for spine in ("top", "right", "left"):
+        ax.spines[spine].set_visible(False)
+    ax.spines["bottom"].set_color(GRID)
+    ax.tick_params(colors=MUTED, labelsize=9, length=0)
+    ax.margins(x=0.02)
+    ax.set_ylim(bottom=0)
+
+    # Show both the day and the hour so critical (low-availability) times are
+    # readable — the daily rhythm is the whole point of the all-time view.
+    locator = mdates.AutoDateLocator(tz=PARIS_TZ)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Hh\n%d/%m", tz=PARIS_TZ))
+
+    legend = ax.legend(loc="upper left", frameon=False, fontsize=9,
+                       labelcolor=INK, handlelength=1.4, ncol=2,
+                       columnspacing=1.2)
+    legend.set_zorder(6)
+
+    fig.subplots_adjust(left=0.06, right=0.97, top=0.86, bottom=0.18)
+
+    os.makedirs(STATION_HISTORY_DIR, exist_ok=True)
+    out_path = os.path.join(STATION_HISTORY_DIR, f"{uuid.uuid4()}.svg")
+    fig.savefig(out_path, format="svg", facecolor=SURFACE)
+    plt.close(fig)
+    print(f"Wrote station {station_id} all-time chart with {len(times)} points to {out_path}")
+    return out_path
 
 
 def render_station(station_id):
@@ -236,7 +331,7 @@ def render_station(station_id):
     Returns the path to the written SVG, or None if the station has no data in
     the window (so the caller can 404 / show a placeholder).
     """
-    name, times, electrical, mechanical = load_station_recent(station_id)
+    name, times, electrical, mechanical, max_capacity = load_station_recent(station_id)
     if not times:
         print(f"No data for station {station_id}; skipping chart.")
         return None
@@ -251,6 +346,15 @@ def render_station(station_id):
             markersize=4, label="Electrical")
     ax.plot(times, mechanical, color=MECHANICAL, linewidth=2, marker="o",
             markersize=4, label="Mechanical")
+    # total
+    ax.plot(times, [electrical[i] + mechanical[i] for i in range(len(times))],
+            color=TOTAL, linewidth=2.4, marker="o", markersize=5, label="Total", zorder=4)
+    # The station's parking capacity (total docks) as a dashed ceiling line.
+    if max_capacity:
+        ax.plot(times, [max_capacity] * len(times), color=MAX_CAPACITY_LINE,
+                linewidth=1.2, linestyle="--",
+                label=f"Parking capacity ({max_capacity})")
+
 
     ax.set_title(f"Bikes available at {label} — last 24 hours",
                  color=INK, fontsize=13, fontweight="bold", loc="left", pad=12)
