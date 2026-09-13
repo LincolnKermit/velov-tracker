@@ -1,0 +1,11 @@
+[Unit]
+Description=Vélo'v Data Collector and Chart Generator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/lincoln/Workspace/velov-tracker
+ExecStart=/home/lincoln/Workspace/velov-tracker/scripts/collect_and_push.sh
+StandardOutput=journal
+StandardError=journal

@@ -1,6 +1,6 @@
 """Fetch a snapshot of all Vélo'v stations and append one row per station to
-data/history.csv. Intended to run hourly via GitHub Actions so that, over time,
-we can compute average availability for any given day-of-week and hour.
+data/history.csv. Intended to run every 15 minutes locally on a Raspberry Pi so that,
+over time, we can compute average availability for any given day-of-week and hour.
 """
 import csv
 import os
@@ -76,7 +76,7 @@ def update_readme(stations, collected_at):
         f"- Total bikes available: **{bikes}**\n"
         f"- Free parking stands: **{stands}**\n"
         f"- Stations open: **{open_stations}/{len(stations)}**\n\n"
-        f"**Dynamic data powered by Github Actions 🤖**\n"
+        f"**Dynamic data powered by Raspberry Pi 🍓**\n"
         f"{README_END}"
     )
 

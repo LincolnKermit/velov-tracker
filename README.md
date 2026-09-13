@@ -12,7 +12,7 @@
 - Free parking stands: **5691**
 - Stations open: **454/458**
 
-**Dynamic data powered by Github Actions 🤖**
+**Dynamic data powered by Raspberry Pi 🍓**
 <!-- LATEST:END -->
 
 ### 📈 Availability over the last 24 hours
@@ -40,7 +40,7 @@ Ce projet a été réalisé afin de traquer la tendance de la disponibilité des
     - Nombre de places disponible
     - Ajouter un système de filtre/tri sur la page afin de trier les résultats.
     - API disponible - 24h d'historique d'une station ( localhost:5000/history/<station_id> )
-    - GitHub Actions pour recueillir automatiquement des données.
+    - Collecte automatique des données toutes les 15 minutes sur Raspberry Pi.
 
 ### Roadmap:
 
