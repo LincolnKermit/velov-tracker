@@ -1,15 +1,13 @@
-"""Render a chart of average Vélo'v availability by hour of day from
-data/history.csv into assets/availability.svg.
+"""Render charts of Vélo'v availability over the last 24 hours from
+data/history.csv into assets/availability.svg and
+assets/availability_by_arrondissement.svg.
 
-Every hourly snapshot is bucketed by its local (Europe/Paris) hour and the
-city-wide total bikes available is averaged across all collected days, giving a
-typical 24-hour profile — so you can see at which hours the fewest bikes are
-available.
+Chronological snapshots over the rolling 24-hour window are plotted with the
+oldest point on the left and the latest updated info on the rightmost edge.
 
 Run standalone (``python -m source.chart``) or via ``source.collect`` after a
 snapshot is appended. The image is regenerated in place every run, so the README
-reference to it never needs to change — GitHub serves the fresh file on each
-commit.
+reference to it never needs to change.
 """
 import csv
 import os
@@ -99,6 +97,46 @@ def load_hourly_profile():
     return hours, total, electrical, mechanical
 
 
+def load_recent_citywide():
+    """Read the CSV into chronological city-wide totals over the last WINDOW_HOURS.
+
+    Returns (times, total, electrical, mechanical) where ``times`` is a sorted list
+    of Europe/Paris datetimes within the last 24 hours, ending with the most recent
+    snapshot as the rightmost element.
+    """
+    snap_total = defaultdict(int)
+    snap_elec = defaultdict(int)
+    snap_mech = defaultdict(int)
+    with open(CSV_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            ts = row["timestamp_utc"]
+            snap_total[ts] += int(row["bikes"])
+            snap_elec[ts] += int(row["electrical"])
+            snap_mech[ts] += int(row["mechanical"])
+
+    if not snap_total:
+        return [], [], [], []
+
+    sorted_ts = sorted(snap_total)
+    latest_dt = datetime.strptime(sorted_ts[-1], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    cutoff = latest_dt.timestamp() - WINDOW_HOURS * 3600
+
+    times = []
+    total = []
+    electrical = []
+    mechanical = []
+    for ts in sorted_ts:
+        dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        if dt.timestamp() < cutoff:
+            continue
+        times.append(dt.astimezone(PARIS_TZ))
+        total.append(snap_total[ts])
+        electrical.append(snap_elec[ts])
+        mechanical.append(snap_mech[ts])
+
+    return times, total, electrical, mechanical
+
+
 def arrondissement_of(number):
     """Map a Vélo'v station number to its Lyon arrondissement (1-9), or None.
 
@@ -136,11 +174,13 @@ def load_recent_by_arrondissement():
     if not snap:
         return [], {}
 
-    cutoff = datetime.now(timezone.utc).timestamp() - WINDOW_HOURS * 3600
+    sorted_ts = sorted(snap)
+    latest_dt = datetime.strptime(sorted_ts[-1], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    cutoff = latest_dt.timestamp() - WINDOW_HOURS * 3600
 
     times = []
     series = {arr: [] for arr in sorted(ARR_COLORS)}
-    for ts in sorted(snap):
+    for ts in sorted_ts:
         dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
         if dt.timestamp() < cutoff:
             continue
@@ -388,8 +428,8 @@ def render_station(station_id):
 
 
 def render():
-    hours, total, electrical, mechanical = load_hourly_profile()
-    if not hours:
+    times, total, electrical, mechanical = load_recent_citywide()
+    if not times:
         print("No data to plot; skipping chart.")
         return
 
@@ -397,50 +437,52 @@ def render():
     fig.patch.set_facecolor(SURFACE)
     ax.set_facecolor(SURFACE)
 
-    ax.plot(hours, total, color=TOTAL, linewidth=2.4, marker="o",
-            markersize=5, label="Total", zorder=4)
-    ax.plot(hours, electrical, color=ELECTRICAL, linewidth=2, marker="o",
-            markersize=4, label="Electrical")
-    ax.plot(hours, mechanical, color=MECHANICAL, linewidth=2, marker="o",
-            markersize=4, label="Mechanical")
+    marker = "o" if len(times) <= 96 else None
+    marker_size = 4 if len(times) <= 96 else 0
 
-    # Highlight the hour with the fewest total bikes — the whole point of the
-    # chart.
+    ax.plot(times, total, color=TOTAL, linewidth=2.4, marker=marker,
+            markersize=marker_size + 1, label="Total", zorder=4)
+    ax.plot(times, electrical, color=ELECTRICAL, linewidth=2, marker=marker,
+            markersize=marker_size, label="Electrical")
+    ax.plot(times, mechanical, color=MECHANICAL, linewidth=2, marker=marker,
+            markersize=marker_size, label="Mechanical")
+
+    # Highlight the snapshot with the fewest total bikes over the last 24 hours.
     low_idx = min(range(len(total)), key=lambda i: total[i])
-    low_hour, low_val = hours[low_idx], total[low_idx]
-    ax.plot(low_hour, low_val, color=LOW, marker="o", markersize=8, zorder=5)
-    ax.annotate(f"Lowest total: {int(round(low_val))} at {low_hour:02d}h",
-                (low_hour, low_val), color=LOW, fontsize=9, fontweight="bold",
+    low_time, low_val = times[low_idx], total[low_idx]
+    ax.plot(low_time, low_val, color=LOW, marker="o", markersize=8, zorder=5)
+    ax.annotate(f"Lowest total: {int(round(low_val))} at {low_time.strftime('%H:%M')}",
+                (low_time, low_val), color=LOW, fontsize=9, fontweight="bold",
                 xytext=(0, -16), textcoords="offset points", ha="center")
 
-    legend = ax.legend(loc="upper right", frameon=False, fontsize=9,
+    legend = ax.legend(loc="upper left", frameon=False, fontsize=9,
                        labelcolor=INK, handlelength=1.4, ncol=3,
                        columnspacing=1.2)
     legend.set_zorder(6)
 
-    ax.set_title("Average bikes available across Lyon, by hour of day",
+    ax.set_title("Bikes available across Lyon — last 24 hours",
                  color=INK, fontsize=13, fontweight="bold", loc="left", pad=12)
 
-    # Recessive chrome.
+    # Recessive chrome (matches the arrondissement chart).
     ax.grid(True, color=GRID, linewidth=0.8)
     ax.set_axisbelow(True)
     for spine in ("top", "right", "left"):
         ax.spines[spine].set_visible(False)
     ax.spines["bottom"].set_color(GRID)
     ax.tick_params(colors=MUTED, labelsize=9, length=0)
+    ax.margins(x=0.02)
     ax.set_ylim(bottom=0)
 
-    # Full 24-hour axis so the daily rhythm is always framed the same way.
-    ax.set_xlim(-0.5, 23.5)
-    ax.set_xticks(range(0, 24, 2))
-    ax.set_xticklabels([f"{h:02d}h" for h in range(0, 24, 2)])
+    locator = mdates.AutoDateLocator(tz=PARIS_TZ)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Hh\n%d/%m", tz=PARIS_TZ))
 
-    fig.subplots_adjust(left=0.06, right=0.97, top=0.86, bottom=0.15)
+    fig.subplots_adjust(left=0.06, right=0.97, top=0.86, bottom=0.18)
 
     os.makedirs(ASSETS_DIR, exist_ok=True)
     fig.savefig(CHART_PATH, format="svg", facecolor=SURFACE)
     plt.close(fig)
-    print(f"Wrote hourly profile with {len(hours)} hours to {CHART_PATH}")
+    print(f"Wrote last-24h availability chart with {len(times)} points to {CHART_PATH}")
 
 
 if __name__ == "__main__":
