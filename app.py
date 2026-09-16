@@ -38,11 +38,12 @@ def render_map_page():
 @app.route("/<path:path>")
 def catch_all(path):
     """Catch-all route to handle Vercel rewrites and direct paths reliably."""
-    clean = path.strip("/")
+    req_path = flask.request.args.get("__path") or path
+    clean = req_path.strip("/")
     if "stations" in clean:
         return api_stations()
     if "history" in clean:
-        parts = [p for p in clean.split("/") if p]
+        parts = [p for p in clean.split("?")[0].split("/") if p]
         is_all = parts[-1] == "all"
         station_id = parts[-2] if is_all else parts[-1]
         if is_all:
@@ -52,6 +53,7 @@ def catch_all(path):
         filename = clean[len("static/"):]
         return flask.send_from_directory(app.static_folder, filename)
     return render_map_page()
+
 
 
 
