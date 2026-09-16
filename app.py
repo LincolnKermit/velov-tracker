@@ -22,12 +22,37 @@ app = flask.Flask(
 )
 
 
-@app.route("/")
-@app.route("/api/index")
-@app.route("/api/index.py")
-def index():
-    """Render the main interactive map application."""
-    return flask.render_template("index.html")
+def render_map_page():
+    """Render index.html with filesystem fallback for Vercel serverless."""
+    try:
+        return flask.render_template("index.html")
+    except Exception:
+        index_path = os.path.join(BASE_DIR, "templates", "index.html")
+        if os.path.isfile(index_path):
+            with open(index_path, "r", encoding="utf-8") as f:
+                return flask.Response(f.read(), mimetype="text/html")
+        raise
+
+
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def catch_all(path):
+    """Catch-all route to handle Vercel rewrites and direct paths reliably."""
+    clean = path.strip("/")
+    if "stations" in clean:
+        return api_stations()
+    if "history" in clean:
+        parts = [p for p in clean.split("/") if p]
+        is_all = parts[-1] == "all"
+        station_id = parts[-2] if is_all else parts[-1]
+        if is_all:
+            return history_all(station_id)
+        return api_station_history(station_id)
+    if clean.startswith("static/"):
+        filename = clean[len("static/"):]
+        return flask.send_from_directory(app.static_folder, filename)
+    return render_map_page()
+
 
 
 @app.route("/api/stations", methods=["GET"])
