@@ -10,3 +10,6 @@ __pycache__/
 venv/
 static/history/
 data/*.csv
+*serviceAccountKey*.json
+*firebase-credentials*.json
+.vercel

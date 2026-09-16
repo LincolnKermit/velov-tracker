@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vélo'v Tracker Lyon — Disponibilité en temps réel</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚲</text></svg>">
+    
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <div id="app-header">
+        <h1>🚲 Vélo'v Tracker Lyon</h1>
+        <div class="live-indicator">
+            <span class="pulse-dot"></span>
+            <span id="header-status">Direct</span>
+        </div>
+    </div>
+
+    <div id="filter-panel">
+        <h3>🚲 Filtrer les stations</h3>
+        <label>
+            <input type="radio" name="filter" value="none" checked onchange="applyFilter(this.value)">
+            Toutes les stations
+            <span class="count-badge" id="count-none">-</span>
+        </label>
+        <label>
+            <input type="radio" name="filter" value="electrical" onchange="applyFilter(this.value)">
+            ⚡ Vélos électriques
+            <span class="count-badge" id="count-electrical">-</span>
+        </label>
+        <label>
+            <input type="radio" name="filter" value="mechanical" onchange="applyFilter(this.value)">
+            🔧 Vélos mécaniques
+            <span class="count-badge" id="count-mechanical">-</span>
+        </label>
+        <label>
+            <input type="radio" name="filter" value="stands" onchange="applyFilter(this.value)">
+            🅿️ Places libres
+            <span class="count-badge" id="count-stands">-</span>
+        </label>
+        <hr>
+        <div id="legend">
+            <div><span class="dot" style="background:#16a34a"></span> 5+ vélos dispo</div>
+            <div><span class="dot" style="background:#ea580c"></span> 1–4 vélos dispo</div>
+            <div><span class="dot" style="background:#dc2626"></span> Aucun vélo dispo</div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+        // Global state
+        let map;
+        let markersData = [];
+        let activeChart = null;
+        let activeStationId = null;
+
+        // Initialize Map
+        function initMap() {
+            map = L.map("map", {
+                center: [45.750000, 4.850000],
+                zoom: 13,
+                zoomControl: true
+            });
+
+            // Clean, legible CartoDB Positron base layer with OSM fallback
+            L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                maxZoom: 19,
+                subdomains: 'abcd'
+            }).addTo(map);
+
+            loadStations();
+        }
+
+        // Fetch stations from server
+        async function loadStations() {
+            try {
+                const res = await fetch("/api/stations");
+                if (!res.ok) throw new Error("Failed to load stations data");
+                const data = await res.json();
+                
+                const stations = data.stations || [];
+                if (data.timestamp_utc) {
+                    const dt = new Date(data.timestamp_utc);
+                    document.getElementById("header-status").textContent = 
+                        dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                }
+
+                renderMarkers(stations);
+            } catch (err) {
+                console.error("Error loading stations:", err);
+                document.getElementById("header-status").textContent = "Hors-ligne";
+            }
+        }
+
+        // Render markers on map
+        function renderMarkers(stations) {
+            markersData = [];
+
+            stations.forEach(station => {
+                if (!station.latitude || !station.longitude) return;
+
+                const bikes = Number(station.bikes || 0);
+                const electrical = Number(station.electrical || 0);
+                const mechanical = Number(station.mechanical || 0);
+                const stands = Number(station.stands || 0);
+                const capacity = Number(station.capacity || 0);
+                const number = String(station.number);
+
+                let pinColor = "pin-gray";
+                if (bikes >= 5) pinColor = "pin-green";
+                else if (bikes > 0) pinColor = "pin-orange";
+                else pinColor = "pin-red";
+
+                const icon = L.divIcon({
+                    className: "custom-div-icon",
+                    html: `<div class="station-pin ${pinColor}">${bikes}</div>`,
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14],
+                    popupAnchor: [0, -14]
+                });
+
+                const marker = L.marker([station.latitude, station.longitude], { icon: icon });
+
+                // Construct popup HTML
+                const popupHtml = `
+                    <div class="popup-header">
+                        <h2>${station.name || 'Station ' + number}</h2>
+                        <p class="station-address">${station.address || 'Lyon'}</p>
+                    </div>
+                    <div class="popup-body">
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-value val-elec">${electrical}</div>
+                                <div class="stat-label">⚡ Élec</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value val-mech">${mechanical}</div>
+                                <div class="stat-label">🔧 Méca</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value val-stands">${stands}</div>
+                                <div class="stat-label">🅿️ Libres</div>
+                            </div>
+                        </div>
+                        <div class="station-meta">
+                            <span>Capacité : <strong>${capacity}</strong></span>
+                            <span>Statut : <strong>${station.status || 'OPEN'}</strong></span>
+                        </div>
+                        <div class="chart-section">
+                            <div class="chart-header">
+                                <span class="chart-title">Historique de disponibilité</span>
+                                <div class="chart-tabs">
+                                    <button class="chart-tab-btn active" onclick="switchChartWindow('${number}', 24, this)">24h</button>
+                                    <button class="chart-tab-btn" onclick="switchChartWindow('${number}', 0, this)">Tout</button>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="container-${number}">
+                                <div class="chart-loader" id="loader-${number}">Chargement du graphique...</div>
+                                <canvas id="chart-${number}" style="display:none;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                marker.bindPopup(popupHtml, { maxWidth: 320 });
+
+                marker.on("popupopen", () => {
+                    activeStationId = number;
+                    loadStationHistory(number, 24);
+                });
+
+                marker.addTo(map);
+
+                markersData.push({
+                    marker,
+                    electrical,
+                    mechanical,
+                    stands,
+                    bikes
+                });
+            });
+
+            updateFilterCounts();
+        }
+
+        // Update counts in filter box
+        function updateFilterCounts() {
+            document.getElementById("count-none").textContent = markersData.length;
+            document.getElementById("count-electrical").textContent = markersData.filter(m => m.electrical > 0).length;
+            document.getElementById("count-mechanical").textContent = markersData.filter(m => m.mechanical > 0).length;
+            document.getElementById("count-stands").textContent = markersData.filter(m => m.stands > 0).length;
+        }
+
+        // Apply radio filter
+        function applyFilter(filterType) {
+            markersData.forEach(({ marker, electrical, mechanical, stands }) => {
+                let show = true;
+                if (filterType === "electrical") show = electrical > 0;
+                else if (filterType === "mechanical") show = mechanical > 0;
+                else if (filterType === "stands") show = stands > 0;
+
+                const el = marker.getElement();
+                if (el) {
+                    el.style.display = show ? "block" : "none";
+                }
+            });
+        }
+
+        // Switch chart window (24h vs All)
+        window.switchChartWindow = function(stationId, hours, btn) {
+            const container = btn.closest(".chart-tabs");
+            if (container) {
+                container.querySelectorAll(".chart-tab-btn").forEach(b => b.classList.remove("active"));
+            }
+            btn.classList.add("active");
+            loadStationHistory(stationId, hours);
+        };
+
+        // Fetch history and draw Chart.js
+        async function loadStationHistory(stationId, hours) {
+            const canvas = document.getElementById(`chart-${stationId}`);
+            const loader = document.getElementById(`loader-${stationId}`);
+            if (!canvas || !loader) return;
+
+            loader.style.display = "flex";
+            loader.textContent = "Chargement...";
+            canvas.style.display = "none";
+
+            try {
+                const url = hours > 0 
+                    ? `/api/history/${stationId}?hours=${hours}` 
+                    : `/api/history/${stationId}?all=true`;
+                
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("No history available");
+                const data = await res.json();
+                const history = data.history || [];
+
+                if (history.length === 0) {
+                    loader.textContent = "Aucune donnée disponible";
+                    return;
+                }
+
+                // Prepare Chart.js datasets
+                const labels = [];
+                const electricalData = [];
+                const mechanicalData = [];
+
+                history.forEach(item => {
+                    const d = new Date(item.timestamp_utc);
+                    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const dateStr = d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+                    labels.push(hours > 0 ? timeStr : `${timeStr} ${dateStr}`);
+                    electricalData.push(item.electrical);
+                    mechanicalData.push(item.mechanical);
+                });
+
+                if (activeChart) {
+                    activeChart.destroy();
+                }
+
+                loader.style.display = "none";
+                canvas.style.display = "block";
+
+                const ctx = canvas.getContext("2d");
+                activeChart = new Chart(ctx, {
+                    type: "line",
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: "Électrique",
+                                data: electricalData,
+                                borderColor: "#22c55e",
+                                backgroundColor: "rgba(34, 197, 94, 0.15)",
+                                borderWidth: 2,
+                                pointRadius: history.length > 50 ? 0 : 2,
+                                tension: 0.2,
+                                fill: true
+                            },
+                            {
+                                label: "Mécanique",
+                                data: mechanicalData,
+                                borderColor: "#f97316",
+                                backgroundColor: "rgba(249, 115, 22, 0.15)",
+                                borderWidth: 2,
+                                pointRadius: history.length > 50 ? 0 : 2,
+                                tension: 0.2,
+                                fill: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    boxWidth: 10,
+                                    boxHeight: 10,
+                                    color: '#9ca3af',
+                                    font: { size: 10 }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#111827',
+                                titleColor: '#f9fafb',
+                                bodyColor: '#f3f4f6',
+                                padding: 8,
+                                displayColors: true
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                ticks: {
+                                    color: '#6b7280',
+                                    font: { size: 9 },
+                                    maxTicksLimit: 6
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                ticks: {
+                                    color: '#6b7280',
+                                    font: { size: 9 },
+                                    precision: 0
+                                }
+                            }
+                        }
+                    }
+                });
+
+            } catch (err) {
+                console.error("Error drawing chart:", err);
+                loader.textContent = "Erreur lors du chargement de l'historique";
+            }
+        }
+
+        // Initialize on DOM ready
+        document.addEventListener("DOMContentLoaded", initMap);
+    </script>
+</body>
+</html>

@@ -24,6 +24,20 @@ import matplotlib.pyplot as plt
 
 PARIS_TZ = ZoneInfo("Europe/Paris")
 
+try:
+    from source.firebase_db import (
+        is_firebase_configured,
+        get_station_history,
+        get_station_info,
+        get_city_snapshots,
+    )
+except ImportError:
+    is_firebase_configured = lambda: False
+    get_station_history = None
+    get_station_info = None
+    get_city_snapshots = None
+
+
 # Rolling window used by the per-station chart.
 WINDOW_HOURS = 24
 
@@ -235,24 +249,44 @@ def render_by_arrondissement():
 
 
 def load_station_recent(station_id):
-    """Read the CSV into chronological electrical/mechanical availability for a
-    single station over the last WINDOW_HOURS.
+    """Read chronological electrical/mechanical availability for a
+    single station over the last WINDOW_HOURS from Firestore (or CSV fallback).
 
-    Returns (name, times, electrical, mechanical, capacity): the station's
-    display name, three parallel lists sorted by time (times as Europe/Paris
-    datetimes), and the station's parking capacity (total docks) — the largest
-    capacity seen in the window, since it can occasionally change.
+    Returns (name, times, electrical, mechanical, capacity).
     """
     station_id = str(station_id)
+
+    # 1. Try Firebase first if configured
+    if is_firebase_configured() and get_station_history:
+        info = get_station_info(station_id) if get_station_info else {}
+        name = info.get("name") if info else None
+        capacity = int(info.get("capacity", 0)) if info else 0
+
+        hist = get_station_history(station_id, hours=WINDOW_HOURS)
+        if hist:
+            times = []
+            electrical = []
+            mechanical = []
+            max_capacity = capacity
+            for r in hist:
+                dt = datetime.strptime(r["timestamp_utc"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                times.append(dt.astimezone(PARIS_TZ))
+                electrical.append(r["electrical"])
+                mechanical.append(r["mechanical"])
+                max_capacity = max(max_capacity, r.get("capacity", 0))
+            return name, times, electrical, mechanical, max_capacity
+
+    # 2. Fallback to local CSV
     name = None
     rows = []  # (utc datetime, electrical, mechanical, capacity)
-    with open(CSV_PATH, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            if row["number"] != station_id:
-                continue
-            name = row["name"]
-            dt = datetime.strptime(row["timestamp_utc"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-            rows.append((dt, int(row["electrical"]), int(row["mechanical"]), int(row["capacity"])))
+    if os.path.isfile(CSV_PATH):
+        with open(CSV_PATH, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                if row["number"] != station_id:
+                    continue
+                name = row["name"]
+                dt = datetime.strptime(row["timestamp_utc"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                rows.append((dt, int(row["electrical"]), int(row["mechanical"]), int(row["capacity"])))
 
     if not rows:
         return name, [], [], [], 0
@@ -274,23 +308,41 @@ def load_station_recent(station_id):
 
 
 def load_station_all(station_id):
-    """Read the CSV into chronological electrical/mechanical availability for a
-    single station over its entire recorded history (no time window).
+    """Read chronological electrical/mechanical availability for a
+    single station over its entire recorded history from Firestore (or CSV fallback).
 
-    Returns (name, times, electrical, mechanical): the station's display name
-    and three parallel lists sorted by time, with times as Europe/Paris
-    datetimes.
+    Returns (name, times, electrical, mechanical).
     """
     station_id = str(station_id)
+
+    # 1. Try Firebase first if configured
+    if is_firebase_configured() and get_station_history:
+        info = get_station_info(station_id) if get_station_info else {}
+        name = info.get("name") if info else None
+
+        hist = get_station_history(station_id, hours=None, all_history=True)
+        if hist:
+            times = []
+            electrical = []
+            mechanical = []
+            for r in hist:
+                dt = datetime.strptime(r["timestamp_utc"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                times.append(dt.astimezone(PARIS_TZ))
+                electrical.append(r["electrical"])
+                mechanical.append(r["mechanical"])
+            return name, times, electrical, mechanical
+
+    # 2. Fallback to local CSV
     name = None
     rows = []  # (utc datetime, electrical, mechanical)
-    with open(CSV_PATH, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            if row["number"] != station_id:
-                continue
-            name = row["name"]
-            dt = datetime.strptime(row["timestamp_utc"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-            rows.append((dt, int(row["electrical"]), int(row["mechanical"])))
+    if os.path.isfile(CSV_PATH):
+        with open(CSV_PATH, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                if row["number"] != station_id:
+                    continue
+                name = row["name"]
+                dt = datetime.strptime(row["timestamp_utc"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                rows.append((dt, int(row["electrical"]), int(row["mechanical"])))
 
     if not rows:
         return name, [], [], []
@@ -301,6 +353,7 @@ def load_station_all(station_id):
     electrical = [elec for _, elec, _ in rows]
     mechanical = [mech for _, _, mech in rows]
     return name, times, electrical, mechanical
+
 
 
 def render_station_all(station_id):

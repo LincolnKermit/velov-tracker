@@ -12,12 +12,14 @@ PARIS_TZ = ZoneInfo("Europe/Paris")
 from source.utils import get_stations
 from source.chart import render as render_chart
 from source.chart import render_by_arrondissement as render_arr_chart
+from source.firebase_db import save_snapshot, is_firebase_configured
 
 DATA_DIR = "data"
 CSV_PATH = os.path.join(DATA_DIR, "history.csv")
 README_PATH = "README.md"
 README_START = "<!-- LATEST:START -->"
 README_END = "<!-- LATEST:END -->"
+
 
 FIELDNAMES = [
     "timestamp_utc",   # ISO-8601 UTC time the snapshot was collected
@@ -113,6 +115,16 @@ def main():
             count += 1
 
     print(f"Wrote {count} station rows at {timestamp} to {CSV_PATH}")
+
+    # Push to Firebase if configured
+    if is_firebase_configured():
+        try:
+            print("Uploading snapshot to Firebase Firestore...")
+            save_snapshot(stations, timestamp)
+        except Exception as e:
+            print(f"[Warning] Firebase snapshot upload failed: {e}")
+    else:
+        print("[Info] Firebase not configured; skipping cloud sync.")
 
     update_readme(stations, collected_at)
     render_chart()
