@@ -1,0 +1,7 @@
+.venv/
+venv/
+data/*.csv
+data/history.csv
+static/history/
+*serviceAccountKey*.json
+*firebase-credentials*.json

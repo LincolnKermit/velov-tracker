@@ -105,14 +105,20 @@ def api_stations():
 
 
 def load_recent_history_fallback(station_id, hours=24):
-    """Load recent history from data/recent_history.json."""
-    json_path = os.path.join(BASE_DIR, "data", "recent_history.json")
-    if not os.path.isfile(json_path):
+    """Load recent history from data/recent_history.json or api/recent_history.json."""
+    candidates = [
+        os.path.join(BASE_DIR, "api", "recent_history.json"),
+        os.path.join(BASE_DIR, "data", "recent_history.json"),
+        "recent_history.json"
+    ]
+    json_path = next((p for p in candidates if os.path.isfile(p)), None)
+    if not json_path:
         return None
     try:
         import json
         with open(json_path, "r", encoding="utf-8") as f:
             data = json.load(f)
+
         station_records = data.get(str(station_id))
         if not station_records:
             return None
