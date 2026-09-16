@@ -97,6 +97,46 @@ def update_readme(stations, collected_at):
     print("Updated README latest-update section.")
 
 
+RECENT_JSON_PATH = os.path.join(DATA_DIR, "recent_history.json")
+
+
+def update_recent_history_json(stations, timestamp):
+    """Keep rolling 24-hour window in data/recent_history.json."""
+    data = {}
+    if os.path.isfile(RECENT_JSON_PATH):
+        try:
+            import json
+            with open(RECENT_JSON_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            data = {}
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    for s in stations:
+        num = str(s.get("number"))
+        avail = s.get("totalStands", {}).get("availabilities", {})
+        point = [
+            timestamp,
+            int(avail.get("electricalBikes", 0)),
+            int(avail.get("mechanicalBikes", 0)),
+            int(avail.get("bikes", 0)),
+            int(avail.get("stands", 0)),
+            int(s.get("totalStands", {}).get("capacity", 0)),
+        ]
+        if num not in data:
+            data[num] = []
+        data[num].append(point)
+        data[num] = [p for p in data[num] if (p[0] if isinstance(p, list) else p.get("timestamp_utc", "")) >= cutoff]
+
+    try:
+        import json
+        with open(RECENT_JSON_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, separators=(",", ":"))
+    except Exception as e:
+        print(f"[Warning] Failed to update {RECENT_JSON_PATH}: {e}")
+
+
 def main():
     stations = get_stations()
     collected_at = datetime.now(timezone.utc)
@@ -116,6 +156,9 @@ def main():
 
     print(f"Wrote {count} station rows at {timestamp} to {CSV_PATH}")
 
+    # Update local rolling 24-hour cache
+    update_recent_history_json(stations, timestamp)
+
     # Push to Firebase if configured
     if is_firebase_configured():
         try:
@@ -129,6 +172,7 @@ def main():
     update_readme(stations, collected_at)
     render_chart()
     render_arr_chart()
+
 
 
 if __name__ == "__main__":

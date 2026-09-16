@@ -104,6 +104,38 @@ def api_stations():
         return flask.jsonify({"error": str(e), "stations": []}), 500
 
 
+def load_recent_history_fallback(station_id, hours=24):
+    """Load recent history from data/recent_history.json."""
+    json_path = os.path.join(BASE_DIR, "data", "recent_history.json")
+    if not os.path.isfile(json_path):
+        return None
+    try:
+        import json
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        station_records = data.get(str(station_id))
+        if not station_records:
+            return None
+
+        records = []
+        for item in station_records:
+            if isinstance(item, list) and len(item) >= 6:
+                records.append({
+                    "timestamp_utc": item[0],
+                    "electrical": int(item[1]),
+                    "mechanical": int(item[2]),
+                    "bikes": int(item[3]),
+                    "stands": int(item[4]),
+                    "capacity": int(item[5]),
+                })
+            elif isinstance(item, dict):
+                records.append(item)
+        return records
+    except Exception as e:
+        print(f"[Fallback] Error reading recent_history.json: {e}")
+        return None
+
+
 @app.route("/api/history/<station_id>", methods=["GET"])
 @app.route("/api/index/api/history/<station_id>", methods=["GET"])
 def api_station_history(station_id):
@@ -137,41 +169,54 @@ def api_station_history(station_id):
                 "source": "firestore"
             })
 
-    # 2. Fallback to CSV
+    # 2. Try lightweight recent_history.json fallback
+    recent_cached = load_recent_history_fallback(station_id, hours=hours)
+    if recent_cached:
+        capacity = recent_cached[-1].get("capacity", 0) if recent_cached else 0
+        return flask.jsonify({
+            "station_id": station_id,
+            "name": f"Station {station_id}",
+            "capacity": capacity,
+            "history": recent_cached,
+            "source": "recent_history_json"
+        })
+
+    # 3. Fallback to full local CSV
     if all_history:
         name, times, electrical, mechanical = load_station_all(station_id)
         capacity = 0
     else:
         name, times, electrical, mechanical, capacity = load_station_recent(station_id)
 
-    if not times:
+    if times:
+        history_records = []
+        for t, elec, mech in zip(times, electrical, mechanical):
+            utc_str = t.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            history_records.append({
+                "timestamp_utc": utc_str,
+                "electrical": elec,
+                "mechanical": mech,
+                "bikes": elec + mech,
+                "stands": max(0, capacity - (elec + mech)) if capacity else 0,
+                "capacity": capacity
+            })
+
         return flask.jsonify({
             "station_id": station_id,
             "name": name or f"Station {station_id}",
             "capacity": capacity,
-            "history": [],
-            "source": "empty"
-        }), 404
-
-    history_records = []
-    for t, elec, mech in zip(times, electrical, mechanical):
-        utc_str = t.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        history_records.append({
-            "timestamp_utc": utc_str,
-            "electrical": elec,
-            "mechanical": mech,
-            "bikes": elec + mech,
-            "stands": max(0, capacity - (elec + mech)) if capacity else 0,
-            "capacity": capacity
+            "history": history_records,
+            "source": "csv"
         })
 
     return flask.jsonify({
         "station_id": station_id,
-        "name": name or f"Station {station_id}",
-        "capacity": capacity,
-        "history": history_records,
-        "source": "csv"
-    })
+        "name": f"Station {station_id}",
+        "capacity": 0,
+        "history": [],
+        "source": "empty"
+    }), 200
+
 
 
 @app.route("/history/<station_id>", methods=["GET"])

@@ -1,8 +1,8 @@
 {
   "functions": {
     "api/index.py": {
-      "includeFiles": "templates/**",
-      "excludeFiles": "data/**"
+      "includeFiles": ["templates/**", "data/recent_history.json"],
+      "excludeFiles": ["data/*.csv"]
     }
   },
   "rewrites": [

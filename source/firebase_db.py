@@ -60,13 +60,6 @@ def get_firestore_client():
                 except Exception as e:
                     print(f"[Firebase] Warning: Failed to load credentials from {default_file}: {e}")
 
-    # 4. Fallback to default application credentials if available
-    if cred is None:
-        try:
-            cred = credentials.ApplicationDefault()
-        except Exception:
-            cred = None
-
     if cred is None:
         return None
 
@@ -83,10 +76,15 @@ def get_firestore_client():
 
 def is_firebase_configured():
     """Return True if Firebase credentials can be found and initialized."""
-    try:
+    raw = os.getenv("FIREBASE_SERVICE_ACCOUNT")
+    path = os.getenv("FIREBASE_CREDENTIALS_PATH") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if raw or (path and os.path.isfile(path)):
         return get_firestore_client() is not None
-    except Exception:
-        return False
+    for f in ["serviceAccountKey.json", "firebase-credentials.json", ".firebase-credentials.json"]:
+        if os.path.isfile(f):
+            return get_firestore_client() is not None
+    return False
+
 
 
 def arrondissement_of(number):
