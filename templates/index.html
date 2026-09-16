@@ -26,35 +26,44 @@
         </div>
     </div>
 
-    <div id="filter-panel">
-        <h3>🚲 Filtrer les stations</h3>
-        <label>
-            <input type="radio" name="filter" value="none" checked onchange="applyFilter(this.value)">
-            Toutes les stations
-            <span class="count-badge" id="count-none">-</span>
-        </label>
-        <label>
-            <input type="radio" name="filter" value="electrical" onchange="applyFilter(this.value)">
-            ⚡ Vélos électriques
-            <span class="count-badge" id="count-electrical">-</span>
-        </label>
-        <label>
-            <input type="radio" name="filter" value="mechanical" onchange="applyFilter(this.value)">
-            🔧 Vélos mécaniques
-            <span class="count-badge" id="count-mechanical">-</span>
-        </label>
-        <label>
-            <input type="radio" name="filter" value="stands" onchange="applyFilter(this.value)">
-            🅿️ Places libres
-            <span class="count-badge" id="count-stands">-</span>
-        </label>
-        <hr>
-        <div id="legend">
-            <div><span class="dot" style="background:#16a34a"></span> 5+ vélos dispo</div>
-            <div><span class="dot" style="background:#ea580c"></span> 1–4 vélos dispo</div>
-            <div><span class="dot" style="background:#dc2626"></span> Aucun vélo dispo</div>
+    <div id="filter-panel" class="minimized">
+        <button id="filter-toggle-btn" type="button" onclick="toggleFilterPanel()" aria-expanded="false" title="Filtrer les résultats">
+            <span class="filter-btn-text">🚲 Filtrer les résultats</span>
+            <span id="filter-arrow" class="arrow-icon">▲</span>
+        </button>
+        <div id="filter-content">
+            <label>
+                <input type="radio" name="filter" value="none" checked onchange="applyFilter(this.value)">
+                Toutes les stations
+                <span class="count-badge" id="count-none">-</span>
+            </label>
+            <label>
+                <input type="radio" name="filter" value="electrical" onchange="applyFilter(this.value)">
+                ⚡ Vélos électriques
+                <span class="count-badge" id="count-electrical">-</span>
+            </label>
+            <label>
+                <input type="radio" name="filter" value="mechanical" onchange="applyFilter(this.value)">
+                🔧 Vélos mécaniques
+                <span class="count-badge" id="count-mechanical">-</span>
+            </label>
+            <label>
+                <input type="radio" name="filter" value="stands" onchange="applyFilter(this.value)">
+                🅿️ Places libres
+                <span class="count-badge" id="count-stands">-</span>
+            </label>
+            <hr>
+            <div id="legend">
+                <div><span class="dot" style="background:#16a34a"></span> 5+ vélos dispo</div>
+                <div><span class="dot" style="background:#ea580c"></span> 1–4 vélos dispo</div>
+                <div><span class="dot" style="background:#dc2626"></span> Aucun vélo dispo</div>
+            </div>
+            <button id="filter-close-btn" type="button" onclick="toggleFilterPanel()" title="Réduire les filtres">
+                Réduire les filtres ✕
+            </button>
         </div>
     </div>
+
 
     <div id="map"></div>
 
@@ -79,6 +88,22 @@
                 maxZoom: 19
             }).addTo(map);
 
+            // Tap map to minimize filter panel on mobile
+            map.on("click", () => {
+                if (window.innerWidth <= 768) {
+                    const panel = document.getElementById("filter-panel");
+                    if (panel && !panel.classList.contains("minimized")) {
+                        toggleFilterPanel();
+                    }
+                }
+            });
+
+            // Prevent map interactions when touching or scrolling the filter panel
+            const panelEl = document.getElementById("filter-panel");
+            if (panelEl && typeof L !== "undefined" && L.DomEvent) {
+                L.DomEvent.disableClickPropagation(panelEl);
+                L.DomEvent.disableScrollPropagation(panelEl);
+            }
 
             loadStations();
         }
@@ -356,8 +381,52 @@
             }
         }
 
+        // Toggle filter panel (minimized / expanded)
+        function toggleFilterPanel() {
+            const panel = document.getElementById("filter-panel");
+            const btn = document.getElementById("filter-toggle-btn");
+            if (!panel || !btn) return;
+            const isMinimized = panel.classList.toggle("minimized");
+            btn.setAttribute("aria-expanded", !isMinimized);
+            updateFilterArrow(isMinimized);
+        }
+
+        function updateFilterArrow(isMinimized) {
+            const arrow = document.getElementById("filter-arrow");
+            if (!arrow) return;
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                arrow.textContent = isMinimized ? "▲" : "▼";
+            } else {
+                arrow.textContent = isMinimized ? "▼" : "▲";
+            }
+        }
+
+        function checkMobileInitialFilterState() {
+            const panel = document.getElementById("filter-panel");
+            const btn = document.getElementById("filter-toggle-btn");
+            if (!panel || !btn) return;
+            if (window.innerWidth <= 768) {
+                panel.classList.add("minimized");
+                btn.setAttribute("aria-expanded", "false");
+                updateFilterArrow(true);
+            } else {
+                panel.classList.remove("minimized");
+                btn.setAttribute("aria-expanded", "true");
+                updateFilterArrow(false);
+            }
+        }
+
         // Initialize on DOM ready
-        document.addEventListener("DOMContentLoaded", initMap);
+        document.addEventListener("DOMContentLoaded", () => {
+            checkMobileInitialFilterState();
+            initMap();
+        });
+        window.addEventListener("resize", () => {
+            const panel = document.getElementById("filter-panel");
+            updateFilterArrow(panel ? panel.classList.contains("minimized") : false);
+        });
     </script>
 </body>
 </html>
+
