@@ -1,5 +1,7 @@
 # Velo'v tracker 🚲
 
+## Nouveau : Le site est en live : https://velov-tracker.vercel.app
+
 <!-- LATEST:START -->
 <!-- This section is updated automatically every 15 minutes by the collect workflow. -->
 ### 🚲 Latest update
