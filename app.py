@@ -14,17 +14,26 @@ from source.firebase_db import (
 
 PARIS_TZ = ZoneInfo("Europe/Paris")
 
-app = flask.Flask(__name__, static_folder="static", template_folder="templates")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = flask.Flask(
+    __name__,
+    static_folder=os.path.join(BASE_DIR, "static"),
+    template_folder=os.path.join(BASE_DIR, "templates")
+)
 
 
 @app.route("/")
+@app.route("/api/index")
+@app.route("/api/index.py")
 def index():
     """Render the main interactive map application."""
     return flask.render_template("index.html")
 
 
 @app.route("/api/stations", methods=["GET"])
+@app.route("/api/index/api/stations", methods=["GET"])
 def api_stations():
+
     """Return latest station availability.
 
     Queries Firestore first; falls back to JCDecaux live API if Firebase is not yet seeded.
@@ -69,6 +78,7 @@ def api_stations():
 
 
 @app.route("/api/history/<station_id>", methods=["GET"])
+@app.route("/api/index/api/history/<station_id>", methods=["GET"])
 def api_station_history(station_id):
     """Return JSON history for a specific station for Chart.js.
 
@@ -138,6 +148,7 @@ def api_station_history(station_id):
 
 
 @app.route("/history/<station_id>", methods=["GET"])
+@app.route("/api/index/history/<station_id>", methods=["GET"])
 def history(station_id):
     """Serve SVG chart for last 24h (backwards-compatible route)."""
     svg_path = render_station(station_id)
@@ -147,7 +158,9 @@ def history(station_id):
 
 
 @app.route("/history/<station_id>/all", methods=["GET"])
+@app.route("/api/index/history/<station_id>/all", methods=["GET"])
 def history_all(station_id):
+
     """Serve SVG chart for all-time (backwards-compatible route)."""
     svg_path = render_station_all(station_id)
     if svg_path is None:
