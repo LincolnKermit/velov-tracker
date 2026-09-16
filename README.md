@@ -1,4 +1,4 @@
-# README
+# Velo'v tracker 🚲
 
 <!-- LATEST:START -->
 <!-- This section is updated automatically every 15 minutes by the collect workflow. -->
