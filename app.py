@@ -216,10 +216,12 @@ def api_share_location():
         return flask.jsonify({"error": str(e)}), 500
 
 
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
+@app.route("/", defaults={"path": ""}, methods=["GET", "POST", "OPTIONS"])
+@app.route("/<path:path>", methods=["GET", "POST", "OPTIONS"])
 def catch_all(path):
     """Catch-all route to handle Vercel rewrites and direct paths reliably."""
+    if flask.request.method == "OPTIONS":
+        return flask.Response("", status=204)
     req_path = flask.request.args.get("__path") or path
     clean = req_path.strip("/")
     if clean.startswith("_vercel/insights/script.js"):
