@@ -1093,23 +1093,28 @@ html, body {
     display: flex;
     gap: 6px;
     margin-bottom: 12px;
-    background: #f3f4f6;
-    padding: 4px;
-    border-radius: 12px;
+    background: #f1f5f9;
+    padding: 5px;
+    border-radius: 14px;
 }
 
 .history-tab-btn {
     flex: 1;
     background: transparent;
     border: none;
-    padding: 8px 10px;
-    font-size: 12.5px;
+    padding: 10px 8px;
+    font-size: 13px;
     font-weight: 600;
     color: #4b5563;
-    border-radius: 9px;
+    border-radius: 10px;
     cursor: pointer;
     transition: background 0.15s, color 0.15s, box-shadow 0.15s;
     text-align: center;
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .history-tab-btn.active {
@@ -1126,9 +1131,9 @@ html, body {
     gap: 8px;
     background: #fef2f2;
     border: 1px solid #fee2e2;
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 10px 14px;
-    font-size: 12.5px;
+    font-size: 13px;
     color: #991b1b;
     margin-bottom: 12px;
 }
@@ -1142,23 +1147,27 @@ html, body {
     color: #ffffff;
     font-size: 10.5px;
     font-weight: 800;
-    padding: 2px 7px;
+    padding: 3px 8px;
     border-radius: 6px;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.4px;
 }
 
 .history-sheet-chart-container {
     position: relative;
-    height: 280px;
+    height: 320px;
     width: 100%;
-    background: #1e1e1e;
-    border-radius: 16px;
-    padding: 14px;
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 18px;
+    padding: 14px 16px;
     box-sizing: border-box;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 .history-sheet-chart-container canvas {
-    max-height: 252px !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 292px !important;
 }
 
 /* Responsive adjustments */
@@ -1238,6 +1247,12 @@ html, body {
     }
 
     .history-sheet-chart-container {
-        height: 260px;
+        height: 285px;
+        padding: 10px 8px;
+        border-radius: 16px;
+    }
+
+    .history-sheet-chart-container canvas {
+        max-height: 265px !important;
     }
 }

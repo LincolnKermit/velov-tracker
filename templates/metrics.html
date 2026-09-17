@@ -3,9 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vélo'v Tracker — Métriques & Audience</title>
+    <title>Vélo'v Tracker — Métriques & Audience Privées</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+    
+    <!-- Chart.js for interactive analytics charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/style.css">
+
     <style>
         body {
             background: #f8fafc;
@@ -19,7 +25,7 @@
         .metrics-navbar {
             background: #ffffff;
             border-bottom: 1px solid #e2e8f0;
-            padding: 14px 24px;
+            padding: 12px 20px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -46,12 +52,20 @@
             font-weight: 600;
             padding: 8px 14px;
             border-radius: 10px;
+            border: none;
+            cursor: pointer;
             transition: background 0.15s ease, color 0.15s ease;
         }
 
         .metrics-back-btn:hover {
             background: #e2e8f0;
             color: #0f172a;
+        }
+
+        .metrics-nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .metrics-nav-title {
@@ -64,10 +78,21 @@
             gap: 8px;
         }
 
+        .private-tag {
+            background: #fee2e2;
+            color: #b91c1c;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 6px;
+            letter-spacing: 0.3px;
+        }
+
         .metrics-container {
-            max-width: 1080px;
+            max-width: 1120px;
             margin: 0 auto;
             padding: 24px 16px 60px 16px;
+            box-sizing: border-box;
         }
 
         .metrics-hero {
@@ -79,6 +104,10 @@
             font-weight: 800;
             color: #0f172a;
             margin: 0 0 6px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
         .metrics-hero p {
@@ -87,6 +116,7 @@
             margin: 0;
         }
 
+        /* KPI Cards */
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -99,7 +129,7 @@
             border: 1px solid #e2e8f0;
             border-radius: 18px;
             padding: 18px 20px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
             display: flex;
             flex-direction: column;
             gap: 6px;
@@ -110,15 +140,15 @@
         }
 
         .kpi-label {
-            font-size: 12.5px;
-            font-weight: 600;
+            font-size: 12px;
+            font-weight: 700;
             color: #64748b;
             text-transform: uppercase;
             letter-spacing: 0.4px;
         }
 
         .kpi-value {
-            font-size: 26px;
+            font-size: 28px;
             font-weight: 800;
             color: #0f172a;
             line-height: 1.1;
@@ -129,9 +159,10 @@
             color: #94a3b8;
         }
 
+        /* Charts & Panels Grid */
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
             gap: 20px;
             margin-bottom: 24px;
         }
@@ -140,8 +171,11 @@
             background: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 18px;
-            padding: 20px 22px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+            padding: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
         }
 
         .panel-header {
@@ -163,8 +197,16 @@
             margin: 0;
         }
 
-        .stat-bar-item {
+        /* Chart Canvas Containers */
+        .metrics-chart-box {
+            position: relative;
+            height: 240px;
+            width: 100%;
             margin-bottom: 14px;
+        }
+
+        .stat-bar-item {
+            margin-bottom: 12px;
         }
 
         .stat-bar-info {
@@ -193,9 +235,11 @@
         .stat-bar-fill.green { background: #16a34a; }
         .stat-bar-fill.orange { background: #ea580c; }
         .stat-bar-fill.purple { background: #9333ea; }
+        .stat-bar-fill.pink { background: #db2777; }
 
         .table-responsive {
             overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .visits-table {
@@ -203,6 +247,7 @@
             border-collapse: collapse;
             font-size: 13px;
             text-align: left;
+            min-width: 500px;
         }
 
         .visits-table th {
@@ -210,7 +255,7 @@
             font-weight: 600;
             padding: 10px 12px;
             border-bottom: 1px solid #e2e8f0;
-            font-size: 12px;
+            font-size: 11.5px;
             text-transform: uppercase;
             letter-spacing: 0.3px;
         }
@@ -237,7 +282,7 @@
         }
 
         .vercel-card {
-            background: linear-gradient(135deg, #000000 0%, #1e1e1e 100%);
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
             color: #ffffff;
             border-radius: 20px;
             padding: 22px 24px;
@@ -246,7 +291,7 @@
             justify-content: space-between;
             gap: 20px;
             flex-wrap: wrap;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
             margin-top: 24px;
         }
 
@@ -268,7 +313,7 @@
 
         .vercel-btn {
             background: #ffffff;
-            color: #000000;
+            color: #0f172a;
             font-weight: 700;
             font-size: 13.5px;
             padding: 10px 18px;
@@ -288,9 +333,179 @@
 
         .empty-state {
             text-align: center;
-            padding: 24px 12px;
+            padding: 28px 12px;
             color: #94a3b8;
             font-size: 13px;
+        }
+
+        /* 🔒 Authentication Lock Screen Overlay */
+        .auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .auth-overlay.hidden {
+            display: none;
+        }
+
+        .auth-card {
+            background: #ffffff;
+            border-radius: 24px;
+            max-width: 420px;
+            width: 100%;
+            padding: 28px 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            text-align: center;
+            animation: modalFadeIn 0.2s ease-out;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .auth-icon {
+            font-size: 38px;
+            margin-bottom: 12px;
+        }
+
+        .auth-card h2 {
+            font-size: 20px;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0 0 8px 0;
+        }
+
+        .auth-card p {
+            font-size: 13.5px;
+            color: #64748b;
+            line-height: 1.45;
+            margin: 0 0 20px 0;
+        }
+
+        .auth-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .auth-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 12px;
+            font-size: 15px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .auth-input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        .auth-submit-btn {
+            width: 100%;
+            background: #2563eb;
+            color: #ffffff;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 18px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.1s ease;
+        }
+
+        .auth-submit-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .auth-error {
+            background: #fef2f2;
+            color: #b91c1c;
+            border: 1px solid #fee2e2;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .auth-error.hidden {
+            display: none;
+        }
+
+        .auth-card-footer {
+            margin-top: 16px;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .auth-card-footer a {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* Mobile specific styles */
+        @media (max-width: 640px) {
+            .metrics-navbar {
+                padding: 10px 14px;
+            }
+
+            .metrics-nav-title {
+                font-size: 14px;
+            }
+
+            .private-tag {
+                display: none;
+            }
+
+            .metrics-hero h1 {
+                font-size: 20px;
+            }
+
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            .kpi-card {
+                padding: 14px;
+                border-radius: 14px;
+            }
+
+            .kpi-value {
+                font-size: 22px;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .panel-card {
+                padding: 16px 14px;
+                border-radius: 16px;
+            }
+
+            .metrics-chart-box {
+                height: 210px;
+            }
         }
     </style>
 
@@ -310,22 +525,64 @@
 </head>
 <body>
 
+    <!-- 🔒 Private Lock Screen Modal -->
+    <div id="auth-overlay" class="auth-overlay hidden">
+        <div class="auth-card">
+            <div class="auth-icon">🔒</div>
+            <h2>Espace Administrateur</h2>
+            <p>Les métriques de visites et d'audience sont privées. Entrez votre clé d'accès pour déverrouiller le tableau de bord.</p>
+            <form onsubmit="handleAuthSubmit(event)">
+                <div class="auth-input-group">
+                    <input 
+                        type="password" 
+                        id="auth-key-input" 
+                        class="auth-input" 
+                        placeholder="Clé secrète d'administration..." 
+                        required 
+                        autocomplete="current-password"
+                        autofocus
+                    >
+                    <button type="submit" class="auth-submit-btn" id="auth-btn">
+                        Déverrouiller
+                    </button>
+                </div>
+                <div id="auth-error-msg" class="auth-error hidden"></div>
+            </form>
+            <div class="auth-card-footer">
+                <a href="/">← Retourner sur la carte publique</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Navigation Bar -->
     <header class="metrics-navbar">
         <div class="metrics-nav-left">
             <a href="/" class="metrics-back-btn">← Carte Vélo'v</a>
-            <h2 class="metrics-nav-title">📊 Vélo'v Tracker — Statistiques</h2>
+            <h2 class="metrics-nav-title">
+                📊 Statistiques
+                <span class="private-tag">Privé</span>
+            </h2>
         </div>
-        <button type="button" class="metrics-back-btn" onclick="fetchMetrics()" title="Actualiser les données">
-            🔄 Actualiser
-        </button>
+        <div class="metrics-nav-actions">
+            <button type="button" class="metrics-back-btn" onclick="fetchMetrics()" title="Actualiser les données">
+                🔄 Actualiser
+            </button>
+            <button type="button" class="metrics-back-btn" onclick="logoutMetrics()" title="Verrouiller l'accès" style="color:#b91c1c;">
+                🔒
+            </button>
+        </div>
     </header>
 
-    <main class="metrics-container">
+    <main class="metrics-container" id="metrics-main">
         <div class="metrics-hero">
-            <h1>Audience & Visiteurs</h1>
-            <p>Données de fréquentation en direct : villes, plateformes et appareils des utilisateurs.</p>
+            <h1>
+                Audience & Visiteurs
+                <span style="font-size:13px; font-weight:600; color:#16a34a; background:#dcfce7; padding:3px 8px; border-radius:12px;">En direct</span>
+            </h1>
+            <p>Fréquentation, villes, plateformes et appareils des visiteurs collectés par Vercel Edge.</p>
         </div>
 
+        <!-- KPI Grid -->
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-icon">👥</div>
@@ -337,7 +594,7 @@
                 <div class="kpi-icon">🏙️</div>
                 <div class="kpi-label">Top Ville</div>
                 <div class="kpi-value" id="val-top-city">-</div>
-                <div class="kpi-sub" id="val-top-city-sub">Géolocalisation Vercel Edge</div>
+                <div class="kpi-sub" id="val-top-city-sub">Vercel Edge IP</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-icon">📱</div>
@@ -353,23 +610,30 @@
             </div>
         </div>
 
+        <!-- Charts Grid -->
         <div class="metrics-grid">
-            <!-- Cities Breakdown -->
+            <!-- Cities Chart & List -->
             <div class="panel-card">
                 <div class="panel-header">
-                    <h3 class="panel-title">🏙️ Villes des visiteurs</h3>
+                    <h3 class="panel-title">🏙️ Répartition par Ville</h3>
                     <span style="font-size:12px; color:#64748b;" id="count-cities">0 villes</span>
+                </div>
+                <div class="metrics-chart-box">
+                    <canvas id="chart-cities"></canvas>
                 </div>
                 <div id="cities-list">
                     <div class="empty-state">Chargement des données...</div>
                 </div>
             </div>
 
-            <!-- Platforms Breakdown -->
+            <!-- Platforms Chart & List -->
             <div class="panel-card">
                 <div class="panel-header">
                     <h3 class="panel-title">📱 Plateformes & Systèmes</h3>
                     <span style="font-size:12px; color:#64748b;" id="count-platforms">0 plateformes</span>
+                </div>
+                <div class="metrics-chart-box">
+                    <canvas id="chart-platforms"></canvas>
                 </div>
                 <div id="platforms-list">
                     <div class="empty-state">Chargement des données...</div>
@@ -377,55 +641,175 @@
             </div>
         </div>
 
-        <!-- Recent Visits Log -->
-        <div class="panel-card">
-            <div class="panel-header">
-                <h3 class="panel-title">🕒 Journal des dernières visites en temps réel</h3>
-                <span style="font-size:12px; color:#64748b;" id="log-count">0 entrées</span>
+        <!-- Secondary Grid: Browsers Chart & Recent Visits -->
+        <div class="metrics-grid">
+            <!-- Browsers Doughnut -->
+            <div class="panel-card">
+                <div class="panel-header">
+                    <h3 class="panel-title">🌐 Logiciels de Navigation</h3>
+                    <span style="font-size:12px; color:#64748b;" id="count-browsers">0 navigateurs</span>
+                </div>
+                <div class="metrics-chart-box">
+                    <canvas id="chart-browsers"></canvas>
+                </div>
+                <div id="browsers-list"></div>
             </div>
-            <div class="table-responsive">
-                <table class="visits-table">
-                    <thead>
-                        <tr>
-                            <th>Date & Heure</th>
-                            <th>Ville</th>
-                            <th>Pays</th>
-                            <th>Plateforme</th>
-                            <th>Navigateur</th>
-                        </tr>
-                    </thead>
-                    <tbody id="visits-tbody">
-                        <tr>
-                            <td colspan="5" class="empty-state">Chargement des visites...</td>
-                        </tr>
-                    </tbody>
-                </table>
+
+            <!-- Recent Visits Real-Time Log -->
+            <div class="panel-card">
+                <div class="panel-header">
+                    <h3 class="panel-title">🕒 Journal des Visites Récentes</h3>
+                    <span style="font-size:12px; color:#64748b;" id="log-count">0 entrées</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="visits-table">
+                        <thead>
+                            <tr>
+                                <th>Date & Heure</th>
+                                <th>Ville</th>
+                                <th>Pays</th>
+                                <th>Plateforme</th>
+                                <th>Navigateur</th>
+                            </tr>
+                        </thead>
+                        <tbody id="visits-tbody">
+                            <tr>
+                                <td colspan="5" class="empty-state">Chargement des visites...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <!-- Vercel Web Analytics Info Card -->
+        <!-- Vercel Official Analytics Card -->
         <div class="vercel-card">
             <div class="vercel-card-left">
                 <h3>
                     <svg viewBox="0 0 76 65" height="16" fill="currentColor"><path d="M37.5274 0L75.0548 65H0L37.5274 0Z"/></svg>
-                    Vercel Web Analytics Intégré (Plan Hobby Gratuit)
+                    Vercel Web Analytics Officiel Actif (Hobby Gratuit)
                 </h3>
                 <p>
-                    Le script officiel Vercel Analytics est actif sur votre site (50 000 événements/mois gratuits).<br>
-                    Activez l'onglet Analytics dans votre console Vercel pour consulter les cartes mondiales et les heatmaps.
+                    La librairie <code>@vercel/analytics</code> collecte également vos données de façon privée et sécurisée.<br>
+                    Vous pouvez consulter vos graphiques géographiques complets sur le tableau de bord Vercel.
                 </p>
             </div>
             <a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer" class="vercel-btn">
-                Ouvrir Console Vercel ↗
+                Console Vercel ↗
             </a>
         </div>
     </main>
 
     <script>
-        async function fetchMetrics() {
+        // Chart instances
+        let chartCitiesInstance = null;
+        let chartPlatformsInstance = null;
+        let chartBrowsersInstance = null;
+
+        // Retrieve auth token from URL query, localStorage, or cookie
+        function getStoredKey() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryKey = urlParams.get("key");
+            if (queryKey) {
+                saveAuthKey(queryKey);
+                return queryKey;
+            }
+            const localKey = localStorage.getItem("velov_metrics_key");
+            if (localKey) return localKey;
+
+            const cookieMatch = document.cookie.match(/metrics_auth=([^;]+)/);
+            if (cookieMatch) return decodeURIComponent(cookieMatch[1]);
+
+            return "";
+        }
+
+        function saveAuthKey(key) {
             try {
-                const res = await fetch("/api/metrics");
+                localStorage.setItem("velov_metrics_key", key);
+                document.cookie = `metrics_auth=${encodeURIComponent(key)}; path=/; max-age=${30 * 86400}; SameSite=Lax`;
+            } catch (e) {}
+        }
+
+        function logoutMetrics() {
+            try {
+                localStorage.removeItem("velov_metrics_key");
+                document.cookie = "metrics_auth=; path=/; max-age=0; SameSite=Lax";
+            } catch (e) {}
+            window.location.href = "/metrics";
+        }
+
+        function showAuthOverlay(errorMsg = "") {
+            const overlay = document.getElementById("auth-overlay");
+            const errBox = document.getElementById("auth-error-msg");
+            if (overlay) overlay.classList.remove("hidden");
+            if (errBox) {
+                if (errorMsg) {
+                    errBox.textContent = errorMsg;
+                    errBox.classList.remove("hidden");
+                } else {
+                    errBox.classList.add("hidden");
+                }
+            }
+        }
+
+        function hideAuthOverlay() {
+            const overlay = document.getElementById("auth-overlay");
+            if (overlay) overlay.classList.add("hidden");
+        }
+
+        async function handleAuthSubmit(e) {
+            e.preventDefault();
+            const input = document.getElementById("auth-key-input");
+            const btn = document.getElementById("auth-btn");
+            const key = (input.value || "").trim();
+            if (!key) return;
+
+            btn.disabled = true;
+            btn.textContent = "Vérification...";
+
+            try {
+                const res = await fetch("/api/metrics", {
+                    headers: { "X-Metrics-Key": key }
+                });
+
+                if (res.status === 401) {
+                    showAuthOverlay("❌ Clé d'accès incorrecte.");
+                    btn.disabled = false;
+                    btn.textContent = "Déverrouiller";
+                    return;
+                }
+
+                if (!res.ok) throw new Error("HTTP error " + res.status);
+
+                const data = await res.json();
+                saveAuthKey(key);
+                hideAuthOverlay();
+                renderMetrics(data);
+            } catch (err) {
+                console.error("Auth error:", err);
+                showAuthOverlay("Erreur de connexion au serveur.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Déverrouiller";
+            }
+        }
+
+        async function fetchMetrics() {
+            const key = getStoredKey();
+            const headers = {};
+            if (key) {
+                headers["X-Metrics-Key"] = key;
+            }
+
+            try {
+                const res = await fetch("/api/metrics", { headers });
+                if (res.status === 401) {
+                    showAuthOverlay();
+                    return;
+                }
                 if (!res.ok) throw new Error("Failed to load metrics");
+
+                hideAuthOverlay();
                 const data = await res.json();
                 renderMetrics(data);
             } catch (err) {
@@ -473,7 +857,16 @@
                 document.getElementById("val-top-browser").textContent = "Aucun";
             }
 
-            // Render Cities Progress Bars
+            // 1. Render Cities Chart (Horizontal Bars)
+            renderCitiesChart(cityEntries, total);
+
+            // 2. Render Platforms Chart (Doughnut)
+            renderPlatformsChart(platformEntries, total);
+
+            // 3. Render Browsers Chart (Doughnut)
+            renderBrowsersChart(browserEntries, total);
+
+            // 4. Render Cities Progress Bars List
             document.getElementById("count-cities").textContent = `${cityEntries.length} villes`;
             const citiesList = document.getElementById("cities-list");
             if (cityEntries.length === 0) {
@@ -481,7 +874,7 @@
             } else {
                 let html = "";
                 const maxCount = cityEntries[0][1] || 1;
-                cityEntries.slice(0, 10).forEach(([city, count]) => {
+                cityEntries.slice(0, 6).forEach(([city, count]) => {
                     const widthPct = Math.round((count / maxCount) * 100);
                     const totalPct = total > 0 ? Math.round((count / total) * 100) : 0;
                     html += `
@@ -499,7 +892,7 @@
                 citiesList.innerHTML = html;
             }
 
-            // Render Platforms Progress Bars
+            // 5. Render Platforms Progress Bars List
             document.getElementById("count-platforms").textContent = `${platformEntries.length} plateformes`;
             const platformsList = document.getElementById("platforms-list");
             if (platformEntries.length === 0) {
@@ -515,6 +908,7 @@
                     else if (plat.includes("Android")) colorClass = "green";
                     else if (plat.includes("Windows")) colorClass = "orange";
                     else if (plat.includes("macOS")) colorClass = "purple";
+                    else if (plat.includes("Linux")) colorClass = "pink";
 
                     html += `
                         <div class="stat-bar-item">
@@ -531,7 +925,7 @@
                 platformsList.innerHTML = html;
             }
 
-            // Render Visits Table
+            // 6. Render Visits Table
             const recent = data.recent_visits || [];
             document.getElementById("log-count").textContent = `${recent.length} visites récentes`;
             const tbody = document.getElementById("visits-tbody");
@@ -550,7 +944,7 @@
                     }
                     html += `
                         <tr>
-                            <td style="color:#64748b; font-size:12px;">${escapeHtml(dateStr)}</td>
+                            <td style="color:#64748b; font-size:12px; white-space:nowrap;">${escapeHtml(dateStr)}</td>
                             <td><strong>${escapeHtml(v.city || 'Inconnu')}</strong></td>
                             <td><span style="font-size:11px; background:#e2e8f0; padding:2px 6px; border-radius:4px; font-weight:700;">${escapeHtml(v.country || 'FR')}</span></td>
                             <td><span class="platform-badge">${escapeHtml(v.platform || 'Autre')}</span></td>
@@ -560,6 +954,200 @@
                 });
                 tbody.innerHTML = html;
             }
+        }
+
+        // Cities Chart: Horizontal Bar Chart
+        function renderCitiesChart(cityEntries, total) {
+            const canvas = document.getElementById("chart-cities");
+            if (!canvas) return;
+
+            const topCities = cityEntries.slice(0, 6);
+            const labels = topCities.map(c => c[0]);
+            const values = topCities.map(c => c[1]);
+
+            if (chartCitiesInstance) {
+                chartCitiesInstance.destroy();
+            }
+
+            const ctx = canvas.getContext("2d");
+            chartCitiesInstance = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: labels.length > 0 ? labels : ["Aucune donnée"],
+                    datasets: [{
+                        label: "Visites",
+                        data: values.length > 0 ? values : [0],
+                        backgroundColor: [
+                            "rgba(37, 99, 235, 0.85)",
+                            "rgba(16, 185, 129, 0.85)",
+                            "rgba(249, 115, 22, 0.85)",
+                            "rgba(139, 92, 246, 0.85)",
+                            "rgba(236, 72, 153, 0.85)",
+                            "rgba(100, 116, 139, 0.85)"
+                        ],
+                        borderRadius: 6,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    indexAxis: "y",
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: "#0f172a",
+                            titleFont: { size: 13, weight: "bold" },
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: (c) => {
+                                    const v = c.raw;
+                                    const pct = total > 0 ? Math.round((v / total) * 100) : 0;
+                                    return ` ${v} visite${v > 1 ? 's' : ''} (${pct}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: { color: "#f1f5f9" },
+                            ticks: { precision: 0, font: { size: 11 } }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { font: { size: 12, weight: "600" }, color: "#334155" }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Platforms Chart: Doughnut Chart
+        function renderPlatformsChart(platformEntries, total) {
+            const canvas = document.getElementById("chart-platforms");
+            if (!canvas) return;
+
+            const labels = platformEntries.map(p => p[0]);
+            const values = platformEntries.map(p => p[1]);
+
+            if (chartPlatformsInstance) {
+                chartPlatformsInstance.destroy();
+            }
+
+            const ctx = canvas.getContext("2d");
+            chartPlatformsInstance = new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels: labels.length > 0 ? labels : ["Aucune donnée"],
+                    datasets: [{
+                        data: values.length > 0 ? values : [1],
+                        backgroundColor: [
+                            "#0284c7", // iOS / Mobile Blue
+                            "#10b981", // Android Green
+                            "#8b5cf6", // macOS Purple
+                            "#f97316", // Windows Orange
+                            "#ec4899", // Linux Pink
+                            "#94a3b8"  // Autre
+                        ],
+                        borderWidth: 2,
+                        borderColor: "#ffffff"
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "64%",
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                            labels: {
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                font: { size: 11, weight: "600" },
+                                padding: 10
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: "#0f172a",
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: (c) => {
+                                    const v = c.raw;
+                                    const pct = total > 0 ? Math.round((v / total) * 100) : 0;
+                                    return ` ${c.label} : ${v} (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Browsers Chart: Doughnut Chart
+        function renderBrowsersChart(browserEntries, total) {
+            const canvas = document.getElementById("chart-browsers");
+            if (!canvas) return;
+
+            document.getElementById("count-browsers").textContent = `${browserEntries.length} navigateurs`;
+
+            const labels = browserEntries.map(b => b[0]);
+            const values = browserEntries.map(b => b[1]);
+
+            if (chartBrowsersInstance) {
+                chartBrowsersInstance.destroy();
+            }
+
+            const ctx = canvas.getContext("2d");
+            chartBrowsersInstance = new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels: labels.length > 0 ? labels : ["Aucune donnée"],
+                    datasets: [{
+                        data: values.length > 0 ? values : [1],
+                        backgroundColor: [
+                            "#3b82f6", // Chrome Blue
+                            "#0ea5e9", // Safari Cyan
+                            "#f97316", // Firefox Orange
+                            "#14b8a6", // Edge Teal
+                            "#a855f7", // Opera / Other Purple
+                            "#94a3b8"
+                        ],
+                        borderWidth: 2,
+                        borderColor: "#ffffff"
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "64%",
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                            labels: {
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                font: { size: 11, weight: "600" },
+                                padding: 10
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: "#0f172a",
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: (c) => {
+                                    const v = c.raw;
+                                    const pct = total > 0 ? Math.round((v / total) * 100) : 0;
+                                    return ` ${c.label} : ${v} (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
         }
 
         function escapeHtml(str) {
@@ -572,9 +1160,14 @@
                 .replace(/'/g, "&#039;");
         }
 
-        // Fetch on load and auto-refresh every 20s
+        // Auto fetch on load and refresh every 20s if authenticated
         fetchMetrics();
-        setInterval(fetchMetrics, 20000);
+        setInterval(() => {
+            const overlay = document.getElementById("auth-overlay");
+            if (overlay && overlay.classList.contains("hidden")) {
+                fetchMetrics();
+            }
+        }, 20000);
     </script>
 </body>
 </html>

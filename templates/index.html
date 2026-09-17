@@ -38,7 +38,6 @@
             <span class="pulse-dot"></span>
             <span id="header-status">Direct</span>
         </div>
-        <a href="/metrics" class="header-metrics-btn" title="Statistiques de visites et audience" aria-label="Statistiques d'audience">📊</a>
     </div>
 
     <!-- Geolocation Button (Apple Maps style) -->
@@ -527,6 +526,8 @@
 
                 const ctx = canvas.getContext("2d");
 
+                const isMobile = window.innerWidth <= 640;
+
                 if (hours === "average") {
                     const avg = computeStationAverage(history);
                     activeChart = new Chart(ctx, {
@@ -537,16 +538,17 @@
                                     type: "bar",
                                     label: "Affluence (%)",
                                     data: avg.crowdRate,
-                                    backgroundColor: avg.crowdRate.map(v => v >= 75 ? "rgba(239, 68, 68, 0.85)" : v >= 40 ? "rgba(249, 115, 22, 0.85)" : "rgba(34, 197, 94, 0.85)"),
+                                    backgroundColor: avg.crowdRate.map(v => v >= 75 ? "rgba(239, 68, 68, 0.9)" : v >= 40 ? "rgba(245, 158, 11, 0.9)" : "rgba(16, 185, 129, 0.9)"),
                                     borderRadius: 3,
+                                    barPercentage: 0.85,
                                     yAxisID: "y"
                                 },
                                 {
                                     type: "line",
-                                    label: "Vélos dispo (moy.)",
+                                    label: "Vélos moy.",
                                     data: avg.avgBikes,
-                                    borderColor: "#3b82f6",
-                                    backgroundColor: "rgba(59, 130, 246, 0.15)",
+                                    borderColor: "#38bdf8",
+                                    backgroundColor: "rgba(56, 189, 248, 0.2)",
                                     borderWidth: 2,
                                     pointRadius: 2,
                                     tension: 0.3,
@@ -563,43 +565,50 @@
                                 legend: {
                                     display: true,
                                     position: "top",
-                                    labels: { boxWidth: 8, boxHeight: 8, color: "#9ca3af", font: { size: 9 } }
+                                    labels: { boxWidth: 8, boxHeight: 8, color: "#cbd5e1", font: { size: 9, weight: "600" }, padding: 6 }
                                 },
                                 tooltip: {
-                                    backgroundColor: "#111827",
-                                    titleColor: "#f9fafb",
+                                    backgroundColor: "rgba(15, 23, 42, 0.95)",
+                                    titleColor: "#ffffff",
                                     bodyColor: "#f3f4f6",
                                     padding: 8,
+                                    cornerRadius: 6,
                                     callbacks: {
-                                        title: (items) => `Heure : ${items[0].label}`,
+                                        title: (items) => `⏰ ${items[0].label}00 - ${items[0].label}59`,
                                         label: (ctx) => {
                                             if (ctx.dataset.label.includes("Affluence")) {
                                                 const v = ctx.raw;
-                                                const tag = v >= 75 ? "🔥 Forte affluence" : v >= 40 ? "Modérée" : "Calme";
-                                                return `Affluence : ${v}% (${tag})`;
+                                                const tag = v >= 75 ? "🔥 Forte" : v >= 40 ? "⚡ Moyenne" : "🍃 Calme";
+                                                return ` Affluence : ${v}% (${tag})`;
                                             }
                                             const idx = ctx.dataIndex;
-                                            return `Vélos : ${ctx.raw} (⚡${avg.avgElec[idx]} • 🔧${avg.avgMech[idx]})`;
+                                            return ` 🚲 Vélos moy. : ${ctx.raw} (⚡${avg.avgElec[idx]} • 🔧${avg.avgMech[idx]})`;
                                         }
                                     }
                                 }
                             },
                             scales: {
                                 x: {
-                                    grid: { color: "rgba(255, 255, 255, 0.05)" },
-                                    ticks: { color: "#6b7280", font: { size: 8 }, maxTicksLimit: 8 }
+                                    grid: { color: "rgba(255, 255, 255, 0.06)" },
+                                    ticks: {
+                                        color: "#94a3b8",
+                                        font: { size: 8, weight: "600" },
+                                        maxRotation: 0,
+                                        autoSkip: false,
+                                        callback: (val, index) => index % 4 === 0 ? avg.labels[index] : ""
+                                    }
                                 },
                                 y: {
                                     beginAtZero: true,
                                     max: 100,
-                                    grid: { color: "rgba(255, 255, 255, 0.05)" },
-                                    ticks: { color: "#6b7280", font: { size: 8 }, callback: v => v + "%" }
+                                    grid: { color: "rgba(255, 255, 255, 0.06)" },
+                                    ticks: { color: "#94a3b8", font: { size: 8 }, stepSize: 50, callback: v => v + "%" }
                                 },
                                 y1: {
                                     beginAtZero: true,
                                     position: "right",
                                     grid: { drawOnChartArea: false },
-                                    ticks: { color: "#3b82f6", font: { size: 8 }, precision: 0 }
+                                    ticks: { color: "#38bdf8", font: { size: 8 }, precision: 0, maxTicksLimit: 4 }
                                 }
                             }
                         }
@@ -626,21 +635,21 @@
                                 {
                                     label: "Électrique",
                                     data: electricalData,
-                                    borderColor: "#22c55e",
-                                    backgroundColor: "rgba(34, 197, 94, 0.15)",
+                                    borderColor: "#10b981",
+                                    backgroundColor: "rgba(16, 185, 129, 0.2)",
                                     borderWidth: 2,
                                     pointRadius: history.length > 50 ? 0 : 2,
-                                    tension: 0.2,
+                                    tension: 0.25,
                                     fill: true
                                 },
                                 {
                                     label: "Mécanique",
                                     data: mechanicalData,
                                     borderColor: "#f97316",
-                                    backgroundColor: "rgba(249, 115, 22, 0.15)",
+                                    backgroundColor: "rgba(249, 115, 22, 0.2)",
                                     borderWidth: 2,
                                     pointRadius: history.length > 50 ? 0 : 2,
-                                    tension: 0.2,
+                                    tension: 0.25,
                                     fill: true
                                 }
                             ]
@@ -648,46 +657,30 @@
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            interaction: {
-                                intersect: false,
-                                mode: 'index'
-                            },
+                            interaction: { intersect: false, mode: 'index' },
                             plugins: {
                                 legend: {
                                     display: true,
                                     position: 'top',
-                                    labels: {
-                                        boxWidth: 10,
-                                        boxHeight: 10,
-                                        color: '#9ca3af',
-                                        font: { size: 10 }
-                                    }
+                                    labels: { boxWidth: 8, boxHeight: 8, color: "#cbd5e1", font: { size: 9, weight: "600" }, padding: 6 }
                                 },
                                 tooltip: {
-                                    backgroundColor: '#111827',
-                                    titleColor: '#f9fafb',
-                                    bodyColor: '#f3f4f6',
+                                    backgroundColor: "rgba(15, 23, 42, 0.95)",
+                                    titleColor: "#ffffff",
+                                    bodyColor: "#f3f4f6",
                                     padding: 8,
-                                    displayColors: true
+                                    cornerRadius: 6
                                 }
                             },
                             scales: {
                                 x: {
-                                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                                    ticks: {
-                                        color: '#6b7280',
-                                        font: { size: 9 },
-                                        maxTicksLimit: 6
-                                    }
+                                    grid: { color: "rgba(255, 255, 255, 0.06)" },
+                                    ticks: { color: "#94a3b8", font: { size: 8 }, maxTicksLimit: 5, maxRotation: 0 }
                                 },
                                 y: {
                                     beginAtZero: true,
-                                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                                    ticks: {
-                                        color: '#6b7280',
-                                        font: { size: 9 },
-                                        precision: 0
-                                    }
+                                    grid: { color: "rgba(255, 255, 255, 0.06)" },
+                                    ticks: { color: "#94a3b8", font: { size: 8 }, precision: 0, maxTicksLimit: 5 }
                                 }
                             }
                         }
@@ -804,6 +797,8 @@
                 canvas.style.display = "block";
                 const ctx = canvas.getContext("2d");
 
+                const isMobile = window.innerWidth <= 640;
+
                 if (mode === "average") {
                     const avg = computeStationAverage(history);
                     if (insightBox) {
@@ -824,18 +819,19 @@
                                     type: "bar",
                                     label: "Affluence / Fréquentation (%)",
                                     data: avg.crowdRate,
-                                    backgroundColor: avg.crowdRate.map(v => v >= 75 ? "rgba(239, 68, 68, 0.85)" : v >= 40 ? "rgba(249, 115, 22, 0.85)" : "rgba(34, 197, 94, 0.85)"),
-                                    borderRadius: 5,
+                                    backgroundColor: avg.crowdRate.map(v => v >= 75 ? "rgba(239, 68, 68, 0.92)" : v >= 40 ? "rgba(245, 158, 11, 0.92)" : "rgba(16, 185, 129, 0.92)"),
+                                    borderRadius: isMobile ? 3 : 5,
+                                    barPercentage: isMobile ? 0.85 : 0.75,
                                     yAxisID: "y"
                                 },
                                 {
                                     type: "line",
                                     label: "Vélos disponibles en moyenne",
                                     data: avg.avgBikes,
-                                    borderColor: "#3b82f6",
-                                    backgroundColor: "rgba(59, 130, 246, 0.2)",
-                                    borderWidth: 2.5,
-                                    pointRadius: 4,
+                                    borderColor: "#38bdf8",
+                                    backgroundColor: "rgba(56, 189, 248, 0.25)",
+                                    borderWidth: isMobile ? 2.5 : 3,
+                                    pointRadius: isMobile ? 2.5 : 3.5,
                                     pointHoverRadius: 6,
                                     tension: 0.3,
                                     fill: false,
@@ -851,26 +847,41 @@
                                 legend: {
                                     display: true,
                                     position: "top",
-                                    labels: { boxWidth: 12, boxHeight: 12, color: "#d1d5db", font: { size: 12, weight: "600" } }
+                                    labels: {
+                                        boxWidth: isMobile ? 10 : 12,
+                                        boxHeight: isMobile ? 10 : 12,
+                                        color: "#e2e8f0",
+                                        font: { size: isMobile ? 11 : 12, weight: "600" },
+                                        padding: isMobile ? 8 : 12
+                                    }
                                 },
                                 tooltip: {
-                                    backgroundColor: "rgba(17, 24, 39, 0.96)",
+                                    backgroundColor: "rgba(15, 23, 42, 0.96)",
                                     titleColor: "#ffffff",
-                                    titleFont: { size: 13, weight: "bold" },
+                                    titleFont: { size: isMobile ? 12 : 13, weight: "bold" },
                                     bodyColor: "#f3f4f6",
-                                    bodyFont: { size: 12 },
-                                    padding: 12,
+                                    bodyFont: { size: isMobile ? 11 : 12 },
+                                    padding: isMobile ? 10 : 12,
                                     cornerRadius: 8,
+                                    borderColor: "rgba(255, 255, 255, 0.1)",
+                                    borderWidth: 1,
                                     callbacks: {
-                                        title: (items) => `Créneau horaire : ${items[0].label}00 - ${items[0].label}59`,
+                                        title: (items) => `⏰ Créneau : ${items[0].label}00 - ${items[0].label}59`,
                                         label: (ctx) => {
                                             if (ctx.dataset.label.includes("Affluence")) {
                                                 const v = ctx.raw;
-                                                const tag = v >= 75 ? "🔥 Très fréquenté (Heure de pointe)" : v >= 40 ? "⚡ Fréquentation normale" : "🍃 Calme";
-                                                return `Affluence : ${v}% (${tag})`;
+                                                const tag = v >= 75 ? "🔥 Très fréquenté (Heure de pointe)" : v >= 40 ? "⚡ Fréquentation normale" : "🍃 Calme (Vélos abondants)";
+                                                return ` Affluence : ${v}% (${tag})`;
                                             }
                                             const idx = ctx.dataIndex;
-                                            return `Vélos dispo en moy. : ${ctx.raw} (⚡ ${avg.avgElec[idx]} élec • 🔧 ${avg.avgMech[idx]} méca • 🅿️ ${avg.avgStands[idx]} places)`;
+                                            return ` 🚲 Vélos en moy. : ${ctx.raw} (⚡ ${avg.avgElec[idx]} élec • 🔧 ${avg.avgMech[idx]} méca)`;
+                                        },
+                                        afterLabel: (ctx) => {
+                                            if (ctx.datasetIndex === 0) {
+                                                const idx = ctx.dataIndex;
+                                                return ` 🅿️ Places en moy. : ${avg.avgStands[idx]} libres`;
+                                            }
+                                            return null;
                                         }
                                     }
                                 }
@@ -878,21 +889,53 @@
                             scales: {
                                 x: {
                                     grid: { color: "rgba(255, 255, 255, 0.08)" },
-                                    ticks: { color: "#9ca3af", font: { size: 11, weight: "600" } }
+                                    ticks: {
+                                        color: "#94a3b8",
+                                        font: { size: isMobile ? 10 : 11, weight: "600" },
+                                        maxRotation: 0,
+                                        autoSkip: false,
+                                        callback: (val, index) => {
+                                            if (isMobile) {
+                                                return index % 3 === 0 ? avg.labels[index] : "";
+                                            }
+                                            return index % 2 === 0 ? avg.labels[index] : "";
+                                        }
+                                    }
                                 },
                                 y: {
                                     beginAtZero: true,
                                     max: 100,
-                                    title: { display: true, text: "Affluence (%)", color: "#9ca3af", font: { size: 11 } },
+                                    position: "left",
+                                    title: {
+                                        display: !isMobile,
+                                        text: "Affluence (%)",
+                                        color: "#94a3b8",
+                                        font: { size: 11, weight: "600" }
+                                    },
                                     grid: { color: "rgba(255, 255, 255, 0.08)" },
-                                    ticks: { color: "#9ca3af", font: { size: 11 }, callback: v => v + "%" }
+                                    ticks: {
+                                        color: "#94a3b8",
+                                        font: { size: isMobile ? 10 : 11 },
+                                        stepSize: 25,
+                                        callback: v => v + "%"
+                                    }
                                 },
                                 y1: {
                                     beginAtZero: true,
                                     position: "right",
-                                    title: { display: true, text: "Vélos disponibles", color: "#3b82f6", font: { size: 11 } },
+                                    title: {
+                                        display: !isMobile,
+                                        text: "Vélos disponibles",
+                                        color: "#38bdf8",
+                                        font: { size: 11, weight: "600" }
+                                    },
                                     grid: { drawOnChartArea: false },
-                                    ticks: { color: "#3b82f6", font: { size: 11 }, precision: 0 }
+                                    ticks: {
+                                        color: "#38bdf8",
+                                        font: { size: isMobile ? 10 : 11 },
+                                        precision: 0,
+                                        maxTicksLimit: 5
+                                    }
                                 }
                             }
                         }
@@ -929,10 +972,10 @@
                                 {
                                     label: "⚡ Électrique",
                                     data: electricalData,
-                                    borderColor: "#22c55e",
-                                    backgroundColor: "rgba(34, 197, 94, 0.2)",
-                                    borderWidth: 2.5,
-                                    pointRadius: history.length > 50 ? 0 : 3,
+                                    borderColor: "#10b981",
+                                    backgroundColor: "rgba(16, 185, 129, 0.2)",
+                                    borderWidth: isMobile ? 2 : 2.5,
+                                    pointRadius: history.length > 40 ? 0 : (isMobile ? 2.5 : 3.5),
                                     tension: 0.25,
                                     fill: true
                                 },
@@ -941,16 +984,16 @@
                                     data: mechanicalData,
                                     borderColor: "#f97316",
                                     backgroundColor: "rgba(249, 115, 22, 0.2)",
-                                    borderWidth: 2.5,
-                                    pointRadius: history.length > 50 ? 0 : 3,
+                                    borderWidth: isMobile ? 2 : 2.5,
+                                    pointRadius: history.length > 40 ? 0 : (isMobile ? 2.5 : 3.5),
                                     tension: 0.25,
                                     fill: true
                                 },
                                 {
                                     label: "🅿️ Places libres",
                                     data: standsData,
-                                    borderColor: "#3b82f6",
-                                    borderWidth: 1.5,
+                                    borderColor: "#38bdf8",
+                                    borderWidth: isMobile ? 1.5 : 2,
                                     borderDash: [4, 4],
                                     pointRadius: 0,
                                     tension: 0.2,
@@ -966,25 +1009,46 @@
                                 legend: {
                                     display: true,
                                     position: "top",
-                                    labels: { boxWidth: 12, boxHeight: 12, color: "#d1d5db", font: { size: 12, weight: "600" } }
+                                    labels: {
+                                        boxWidth: isMobile ? 10 : 12,
+                                        boxHeight: isMobile ? 10 : 12,
+                                        color: "#e2e8f0",
+                                        font: { size: isMobile ? 11 : 12, weight: "600" },
+                                        padding: isMobile ? 8 : 12
+                                    }
                                 },
                                 tooltip: {
-                                    backgroundColor: "rgba(17, 24, 39, 0.96)",
+                                    backgroundColor: "rgba(15, 23, 42, 0.96)",
                                     titleColor: "#ffffff",
+                                    titleFont: { size: isMobile ? 12 : 13, weight: "bold" },
                                     bodyColor: "#f3f4f6",
-                                    padding: 12,
-                                    cornerRadius: 8
+                                    bodyFont: { size: isMobile ? 11 : 12 },
+                                    padding: isMobile ? 10 : 12,
+                                    cornerRadius: 8,
+                                    borderColor: "rgba(255, 255, 255, 0.1)",
+                                    borderWidth: 1
                                 }
                             },
                             scales: {
                                 x: {
                                     grid: { color: "rgba(255, 255, 255, 0.08)" },
-                                    ticks: { color: "#9ca3af", font: { size: 11 }, maxTicksLimit: 10 }
+                                    ticks: {
+                                        color: "#94a3b8",
+                                        font: { size: isMobile ? 10 : 11, weight: "600" },
+                                        maxTicksLimit: isMobile ? 5 : 9,
+                                        maxRotation: 0,
+                                        autoSkip: true
+                                    }
                                 },
                                 y: {
                                     beginAtZero: true,
                                     grid: { color: "rgba(255, 255, 255, 0.08)" },
-                                    ticks: { color: "#9ca3af", font: { size: 11 }, precision: 0 }
+                                    ticks: {
+                                        color: "#94a3b8",
+                                        font: { size: isMobile ? 10 : 11 },
+                                        precision: 0,
+                                        maxTicksLimit: isMobile ? 5 : 7
+                                    }
                                 }
                             }
                         }

@@ -79,16 +79,41 @@ def render_map_page():
         raise
 
 
+ADMIN_METRICS_KEY = os.environ.get("METRICS_SECRET") or os.environ.get("METRICS_KEY") or os.environ.get("ADMIN_KEY") or "velov-admin-lyon"
+
+
+def is_metrics_authorized():
+    """Verify admin secret key for private metrics access."""
+    provided_key = (
+        flask.request.args.get("key")
+        or flask.request.headers.get("X-Metrics-Key")
+        or flask.request.cookies.get("metrics_auth")
+    )
+    if not provided_key:
+        auth_header = flask.request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            provided_key = auth_header[7:].strip()
+    return bool(provided_key and str(provided_key).strip() == ADMIN_METRICS_KEY)
+
+
 def render_metrics_page():
-    """Render metrics.html dashboard."""
+    """Render metrics.html dashboard with persistent authentication cookie if valid key passed."""
+    key = flask.request.args.get("key")
+    resp_content = None
     try:
-        return flask.render_template("metrics.html")
+        resp_content = flask.render_template("metrics.html")
     except Exception:
         metrics_path = os.path.join(BASE_DIR, "templates", "metrics.html")
         if os.path.isfile(metrics_path):
             with open(metrics_path, "r", encoding="utf-8") as f:
-                return flask.Response(f.read(), mimetype="text/html")
-        raise
+                resp_content = f.read()
+    if resp_content is None:
+        return flask.Response("Page non trouvée", status=404)
+
+    resp = flask.Response(resp_content, mimetype="text/html")
+    if key and str(key).strip() == ADMIN_METRICS_KEY:
+        resp.set_cookie("metrics_auth", ADMIN_METRICS_KEY, max_age=30 * 86400, httponly=False, samesite="Lax")
+    return resp
 
 
 @app.route("/metrics", methods=["GET"])
@@ -99,12 +124,26 @@ def metrics_page():
 @app.route("/api/metrics", methods=["GET"])
 @app.route("/api/index/api/metrics", methods=["GET"])
 def api_metrics():
-    """Return visitor metrics overview (cities, platforms, browsers, total counts)."""
+    """Return visitor metrics overview (cities, platforms, browsers, total counts) - Protected."""
+    if not is_metrics_authorized():
+        return flask.jsonify({
+            "error": "Accès restreint. Mot de passe ou clé secrète requise.",
+            "authorized": False
+        }), 401
+
     try:
         data = get_metrics_overview()
+        data["authorized"] = True
         return flask.jsonify(data), 200
     except Exception as e:
-        return flask.jsonify({"error": str(e), "total_visits": 0, "cities": {}, "platforms": {}, "browsers": {}}), 500
+        return flask.jsonify({
+            "error": str(e),
+            "total_visits": 0,
+            "cities": {},
+            "platforms": {},
+            "browsers": {},
+            "authorized": True
+        }), 500
 
 
 @app.route("/", defaults={"path": ""})
