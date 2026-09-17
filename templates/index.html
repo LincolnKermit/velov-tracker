@@ -64,6 +64,15 @@
         </div>
     </div>
 
+    <!-- Geolocation Button (Apple Maps style) -->
+    <button id="locate-btn" type="button" onclick="locateUser()" title="Localiser ma position" aria-label="Localiser ma position">
+        <svg id="locate-icon" viewBox="0 0 24 24" width="20" height="20">
+            <polygon class="arrow-shape" points="3 11 22 2 13 21 11 13 3 11"></polygon>
+        </svg>
+    </button>
+
+    <!-- Toast message for notifications -->
+    <div id="toast-message" class="toast-message" role="status" aria-live="polite"></div>
 
     <div id="map"></div>
 
@@ -98,12 +107,28 @@
                 }
             });
 
-            // Prevent map interactions when touching or scrolling the filter panel
+            // Prevent map interactions when touching or scrolling UI controls
             const panelEl = document.getElementById("filter-panel");
             if (panelEl && typeof L !== "undefined" && L.DomEvent) {
                 L.DomEvent.disableClickPropagation(panelEl);
                 L.DomEvent.disableScrollPropagation(panelEl);
             }
+
+            const locateBtnEl = document.getElementById("locate-btn");
+            if (locateBtnEl && typeof L !== "undefined" && L.DomEvent) {
+                L.DomEvent.disableClickPropagation(locateBtnEl);
+                L.DomEvent.disableScrollPropagation(locateBtnEl);
+            }
+
+            // When user drags map, un-follow user position (like Apple Maps)
+            map.on("dragstart", () => {
+                isFollowing = false;
+                const btn = document.getElementById("locate-btn");
+                if (btn && watchId !== null) {
+                    btn.classList.remove("active");
+                    btn.classList.add("tracking-passive");
+                }
+            });
 
             loadStations();
         }
@@ -415,6 +440,197 @@
                 btn.setAttribute("aria-expanded", "true");
                 updateFilterArrow(false);
             }
+        }
+
+        // ==========================================
+        // Geolocation & Real-Time Tracking (Apple Maps style)
+        // ==========================================
+        let userMarker = null;
+        let userAccuracyCircle = null;
+        let watchId = null;
+        let userLocation = null;
+        let isFollowing = false;
+
+        function locateUser() {
+            if (!navigator.geolocation) {
+                showToast("La géolocalisation n'est pas supportée par votre navigateur.");
+                return;
+            }
+
+            const btn = document.getElementById("locate-btn");
+
+            // If already tracking and we have a location: snap back to user position
+            if (userLocation && watchId !== null) {
+                isFollowing = true;
+                if (btn) {
+                    btn.classList.remove("tracking-passive", "loading");
+                    btn.classList.add("active");
+                }
+                const targetZoom = Math.max(map.getZoom(), 16);
+                map.flyTo([userLocation.lat, userLocation.lng], targetZoom, {
+                    animate: true,
+                    duration: 1.0
+                });
+                return;
+            }
+
+            // First time or starting tracking
+            if (btn) {
+                btn.classList.remove("tracking-passive", "active");
+                btn.classList.add("loading");
+            }
+            isFollowing = true;
+
+            // Fast initial position acquisition
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    handleLocationSuccess(pos, true);
+                },
+                (err) => {
+                    console.warn("Initial position error:", err);
+                    if (err.code === 1) { // PERMISSION_DENIED
+                        handleLocationError(err);
+                    }
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+
+            // Real-time continuous position watch
+            if (watchId === null) {
+                watchId = navigator.geolocation.watchPosition(
+                    (pos) => {
+                        handleLocationSuccess(pos, false);
+                    },
+                    (err) => {
+                        handleLocationError(err);
+                    },
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+                );
+            }
+        }
+
+        function handleLocationSuccess(pos, isInitial) {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const accuracy = pos.coords.accuracy;
+
+            const hadLocation = (userLocation !== null);
+            userLocation = { lat, lng, accuracy };
+
+            const btn = document.getElementById("locate-btn");
+            if (btn) {
+                btn.classList.remove("loading");
+                if (isFollowing) {
+                    btn.classList.remove("tracking-passive");
+                    btn.classList.add("active");
+                } else {
+                    btn.classList.remove("active");
+                    btn.classList.add("tracking-passive");
+                }
+            }
+
+            // Create or update marker
+            if (!userMarker) {
+                const userIcon = L.divIcon({
+                    className: 'user-location-wrapper',
+                    html: '<div class="user-pulse"></div><div class="user-dot"></div>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+
+                userMarker = L.marker([lat, lng], {
+                    icon: userIcon,
+                    zIndexOffset: 2000,
+                    title: "Votre position"
+                }).addTo(map);
+
+                userMarker.bindPopup(`
+                    <div class="user-popup">
+                        <div class="user-popup-title">
+                            <span class="user-popup-dot"></span>
+                            Votre position actuelle
+                        </div>
+                        <div class="user-popup-sub">
+                            Précision GPS : ±${Math.round(accuracy)} m
+                        </div>
+                    </div>
+                `, { closeButton: false, offset: [0, -10] });
+
+                userAccuracyCircle = L.circle([lat, lng], {
+                    radius: accuracy,
+                    color: '#007aff',
+                    weight: 1.5,
+                    opacity: 0.35,
+                    fillColor: '#007aff',
+                    fillOpacity: 0.1,
+                    interactive: false
+                }).addTo(map);
+            } else {
+                userMarker.setLatLng([lat, lng]);
+                if (userAccuracyCircle) {
+                    userAccuracyCircle.setLatLng([lat, lng]);
+                    userAccuracyCircle.setRadius(accuracy);
+                }
+                const popup = userMarker.getPopup();
+                if (popup) {
+                    popup.setContent(`
+                        <div class="user-popup">
+                            <div class="user-popup-title">
+                                <span class="user-popup-dot"></span>
+                                Votre position actuelle
+                            </div>
+                            <div class="user-popup-sub">
+                                Précision GPS : ±${Math.round(accuracy)} m
+                            </div>
+                        </div>
+                    `);
+                }
+            }
+
+            // Fly or pan map to position when following
+            if (isFollowing) {
+                const targetZoom = Math.max(map.getZoom(), 16);
+                if (!hadLocation || isInitial) {
+                    map.flyTo([lat, lng], targetZoom, {
+                        animate: true,
+                        duration: 1.2
+                    });
+                } else {
+                    map.panTo([lat, lng], { animate: true, duration: 0.5 });
+                }
+            }
+        }
+
+        function handleLocationError(err) {
+            console.error("Geolocation error:", err);
+            const btn = document.getElementById("locate-btn");
+            if (btn) {
+                btn.classList.remove("loading", "active", "tracking-passive");
+            }
+            isFollowing = false;
+
+            if (err.code === 1) { // PERMISSION_DENIED
+                showToast("Veuillez autoriser l'accès à la position dans votre navigateur.");
+                if (watchId !== null) {
+                    navigator.geolocation.clearWatch(watchId);
+                    watchId = null;
+                }
+            } else if (err.code === 2) { // POSITION_UNAVAILABLE
+                showToast("Signal GPS indisponible pour le moment.");
+            } else if (err.code === 3) { // TIMEOUT
+                showToast("Délai d'obtention de la position dépassé.");
+            }
+        }
+
+        function showToast(msg, duration = 3500) {
+            const toast = document.getElementById("toast-message");
+            if (!toast) return;
+            toast.textContent = msg;
+            toast.classList.add("show");
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => {
+                toast.classList.remove("show");
+            }, duration);
         }
 
         // Initialize on DOM ready
