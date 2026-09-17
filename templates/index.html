@@ -74,12 +74,40 @@
     <!-- Toast message for notifications -->
     <div id="toast-message" class="toast-message" role="status" aria-live="polite"></div>
 
+    <!-- Search Bar (Rounded corners) -->
+    <div id="search-container">
+        <div id="search-bar-wrapper">
+            <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input 
+                id="station-search-input" 
+                type="text" 
+                placeholder="Bellecour, 3012, ..." 
+                autocomplete="off" 
+                autocorrect="off" 
+                autocapitalize="off" 
+                spellcheck="false"
+                aria-label="Rechercher une station"
+                oninput="onSearchInput(this.value)"
+                onkeydown="onSearchKeyDown(event)"
+                onfocus="onSearchFocus()"
+            >
+            <button id="search-clear-btn" type="button" onclick="clearSearch()" title="Effacer la recherche" aria-label="Effacer">
+                ✕
+            </button>
+        </div>
+        <div id="search-results-dropdown" class="search-dropdown hidden"></div>
+    </div>
+
     <div id="map"></div>
 
     <script>
         // Global state
         let map;
         let markersData = [];
+        let allStationsData = [];
         let activeChart = null;
         let activeStationId = null;
 
@@ -97,8 +125,9 @@
                 maxZoom: 19
             }).addTo(map);
 
-            // Tap map to minimize filter panel on mobile
+            // Tap map to close search dropdown and minimize filter panel on mobile
             map.on("click", () => {
+                hideSearchDropdown();
                 if (window.innerWidth <= 768) {
                     const panel = document.getElementById("filter-panel");
                     if (panel && !panel.classList.contains("minimized")) {
@@ -118,6 +147,12 @@
             if (locateBtnEl && typeof L !== "undefined" && L.DomEvent) {
                 L.DomEvent.disableClickPropagation(locateBtnEl);
                 L.DomEvent.disableScrollPropagation(locateBtnEl);
+            }
+
+            const searchEl = document.getElementById("search-container");
+            if (searchEl && typeof L !== "undefined" && L.DomEvent) {
+                L.DomEvent.disableClickPropagation(searchEl);
+                L.DomEvent.disableScrollPropagation(searchEl);
             }
 
             // When user drags map, un-follow user position (like Apple Maps)
@@ -141,6 +176,7 @@
                 const data = await res.json();
                 
                 const stations = data.stations || [];
+                allStationsData = stations;
                 if (data.timestamp_utc) {
                     const dt = new Date(data.timestamp_utc);
                     document.getElementById("header-status").textContent = 
@@ -632,6 +668,247 @@
                 toast.classList.remove("show");
             }, duration);
         }
+
+        // ==========================================
+        // Station Search (Rounded corner search bar)
+        // ==========================================
+        let highlightedSearchIndex = -1;
+
+        function escapeHtml(text) {
+            if (!text) return "";
+            return text.toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function normalizeSearchText(str) {
+            if (!str) return "";
+            return str.toString()
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "") // remove accents
+                .replace(/[^a-z0-9]/g, " ")       // normalize punctuation
+                .replace(/\s+/g, " ")
+                .trim();
+        }
+
+        function onSearchInput(query) {
+            const clearBtn = document.getElementById("search-clear-btn");
+            if (clearBtn) {
+                clearBtn.style.display = query.length > 0 ? "flex" : "none";
+            }
+
+            const nq = normalizeSearchText(query);
+            if (!nq) {
+                hideSearchDropdown();
+                return;
+            }
+
+            performSearch(nq, query.trim());
+        }
+
+        function performSearch(nq, rawQuery) {
+            if (!allStationsData || allStationsData.length === 0) return;
+
+            const scored = [];
+            for (const s of allStationsData) {
+                let score = 0;
+                const snum = String(s.number || "");
+                const rawName = String(s.name || "");
+                const sname = normalizeSearchText(rawName);
+                const saddr = normalizeSearchText(s.address || "");
+                const cleanName = normalizeSearchText(rawName.replace(/^\d+\s*-\s*/, ""));
+
+                if (snum === rawQuery) {
+                    score += 1000;
+                } else if (snum.startsWith(nq)) {
+                    score += 500;
+                } else if (cleanName.startsWith(nq)) {
+                    score += 300;
+                } else if ((" " + cleanName).includes(" " + nq)) {
+                    score += 200;
+                } else if (sname.includes(nq)) {
+                    score += 100;
+                } else if (saddr.includes(nq)) {
+                    score += 50;
+                }
+
+                if (score > 0) {
+                    scored.push({ score, station: s });
+                }
+            }
+
+            scored.sort((a, b) => b.score - a.score || Number(a.station.number) - Number(b.station.number));
+            const results = scored.slice(0, 6).map(item => item.station);
+            renderSearchResults(results, rawQuery);
+        }
+
+        function renderSearchResults(results, rawQuery) {
+            const dropdown = document.getElementById("search-results-dropdown");
+            if (!dropdown) return;
+
+            highlightedSearchIndex = -1;
+
+            if (results.length === 0) {
+                dropdown.innerHTML = `<div class="search-no-results">Aucune station trouvée pour "${escapeHtml(rawQuery)}"</div>`;
+                dropdown.classList.remove("hidden");
+                return;
+            }
+
+            let html = "";
+            results.forEach((station, idx) => {
+                const bikes = Number(station.bikes || 0);
+                const stands = Number(station.stands || 0);
+                const cleanName = String(station.name || "").replace(/^\d+\s*-\s*/, "");
+
+                let badgeClass = "badge-gray";
+                let dotColor = "#6b7280";
+                if (bikes >= 5) {
+                    badgeClass = "badge-green";
+                    dotColor = "#16a34a";
+                } else if (bikes > 0) {
+                    badgeClass = "badge-orange";
+                    dotColor = "#ea580c";
+                } else {
+                    badgeClass = "badge-red";
+                    dotColor = "#dc2626";
+                }
+
+                html += `
+                    <div class="search-result-item" data-index="${idx}" data-number="${escapeHtml(station.number)}" onclick="selectStationByNumber('${escapeHtml(station.number)}')">
+                        <div class="search-res-info">
+                            <div class="search-res-title">
+                                <span class="search-res-num">#${escapeHtml(station.number)}</span>
+                                <span class="search-res-name">${escapeHtml(cleanName)}</span>
+                            </div>
+                            <div class="search-res-address">${escapeHtml(station.address || "")}</div>
+                        </div>
+                        <div class="search-res-badge ${badgeClass}">
+                            <span class="search-res-dot" style="background:${dotColor}"></span>
+                            <span class="search-res-bikes">${bikes} vélos</span>
+                            <span class="search-res-stands">${stands} pl.</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            dropdown.innerHTML = html;
+            dropdown.classList.remove("hidden");
+        }
+
+        function hideSearchDropdown() {
+            const dropdown = document.getElementById("search-results-dropdown");
+            if (dropdown) {
+                dropdown.classList.add("hidden");
+                highlightedSearchIndex = -1;
+            }
+        }
+
+        function onSearchFocus() {
+            const input = document.getElementById("station-search-input");
+            if (input && input.value.trim().length > 0) {
+                onSearchInput(input.value);
+            }
+        }
+
+        function clearSearch() {
+            const input = document.getElementById("station-search-input");
+            const clearBtn = document.getElementById("search-clear-btn");
+            if (input) {
+                input.value = "";
+                input.focus();
+            }
+            if (clearBtn) {
+                clearBtn.style.display = "none";
+            }
+            hideSearchDropdown();
+        }
+
+        function selectStationByNumber(stationNumber) {
+            const stationNumStr = String(stationNumber);
+            const item = markersData.find(m => String(m.number) === stationNumStr);
+            if (!item) return;
+
+            const s = item.station;
+            const input = document.getElementById("station-search-input");
+            if (input) {
+                input.value = s.name || `Station #${s.number}`;
+                const clearBtn = document.getElementById("search-clear-btn");
+                if (clearBtn) clearBtn.style.display = "flex";
+                input.blur();
+            }
+            hideSearchDropdown();
+
+            // Fly smoothly to station
+            map.flyTo([Number(s.latitude), Number(s.longitude)], 17, {
+                animate: true,
+                duration: 1.0
+            });
+
+            // Open station popup automatically
+            setTimeout(() => {
+                if (item.marker) {
+                    item.marker.openPopup();
+                }
+            }, 350);
+        }
+
+        function onSearchKeyDown(e) {
+            const dropdown = document.getElementById("search-results-dropdown");
+            if (!dropdown || dropdown.classList.contains("hidden")) {
+                if (e.key === "Enter") {
+                    onSearchInput(e.target.value);
+                }
+                return;
+            }
+
+            const items = dropdown.querySelectorAll(".search-result-item");
+            if (!items || items.length === 0) return;
+
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                highlightedSearchIndex = (highlightedSearchIndex + 1) % items.length;
+                updateHighlightedItem(items);
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                highlightedSearchIndex = (highlightedSearchIndex - 1 + items.length) % items.length;
+                updateHighlightedItem(items);
+            } else if (e.key === "Enter") {
+                e.preventDefault();
+                if (highlightedSearchIndex >= 0 && highlightedSearchIndex < items.length) {
+                    const num = items[highlightedSearchIndex].getAttribute("data-number");
+                    selectStationByNumber(num);
+                } else if (items.length > 0) {
+                    const num = items[0].getAttribute("data-number");
+                    selectStationByNumber(num);
+                }
+            } else if (e.key === "Escape") {
+                hideSearchDropdown();
+                e.target.blur();
+            }
+        }
+
+        function updateHighlightedItem(items) {
+            items.forEach((item, idx) => {
+                if (idx === highlightedSearchIndex) {
+                    item.classList.add("highlighted");
+                    item.scrollIntoView({ block: "nearest" });
+                } else {
+                    item.classList.remove("highlighted");
+                }
+            });
+        }
+
+        // Dismiss search dropdown when clicking outside
+        document.addEventListener("click", (e) => {
+            const searchContainer = document.getElementById("search-container");
+            if (searchContainer && !searchContainer.contains(e.target)) {
+                hideSearchDropdown();
+            }
+        });
 
         // Initialize on DOM ready
         document.addEventListener("DOMContentLoaded", () => {
