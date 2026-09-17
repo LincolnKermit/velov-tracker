@@ -56,6 +56,26 @@ html, body {
     font-weight: 600;
 }
 
+.header-metrics-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #4b5563;
+    font-size: 13.5px;
+    text-decoration: none;
+    transition: background 0.15s ease, transform 0.1s ease;
+    margin-left: 2px;
+}
+
+.header-metrics-btn:hover {
+    background: #e2e8f0;
+    transform: scale(1.08);
+}
+
 .pulse-dot {
     width: 8px;
     height: 8px;

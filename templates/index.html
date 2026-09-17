@@ -15,6 +15,16 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/style.css">
+
+    <!-- Vercel Web Analytics & Speed Insights (Free on Hobby plan: visits, platform/device/OS, and city) -->
+    <script>
+      window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
+    <script>
+      window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body>
 
@@ -24,6 +34,7 @@
             <span class="pulse-dot"></span>
             <span id="header-status">Direct</span>
         </div>
+        <a href="/metrics" class="header-metrics-btn" title="Statistiques de visites et audience" aria-label="Statistiques d'audience">📊</a>
     </div>
 
     <!-- Geolocation Button (Apple Maps style) -->

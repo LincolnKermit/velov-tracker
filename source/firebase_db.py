@@ -330,3 +330,89 @@ def get_station_info(station_id):
         print(f"[Firebase] Error fetching station info for {station_id}: {e}")
     return None
 
+
+_local_metrics = {
+    "total_visits": 0,
+    "cities": {},
+    "platforms": {},
+    "browsers": {},
+    "recent_visits": [],
+}
+
+
+def record_visit(city: str, country: str, platform: str, browser: str, path: str = "/"):
+    """Record a page visit for analytics (city, platform, browser)."""
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    clean_city = (city or "Inconnu").strip().title()
+    clean_country = (country or "FR").strip().upper()
+    clean_platform = (platform or "Autre").strip()
+    clean_browser = (browser or "Autre").strip()
+
+    visit_entry = {
+        "timestamp_utc": now_iso,
+        "city": clean_city,
+        "country": clean_country,
+        "platform": clean_platform,
+        "browser": clean_browser,
+        "path": path,
+    }
+
+    # Update in-memory metrics
+    _local_metrics["total_visits"] += 1
+    _local_metrics["cities"][clean_city] = _local_metrics["cities"].get(clean_city, 0) + 1
+    _local_metrics["platforms"][clean_platform] = _local_metrics["platforms"].get(clean_platform, 0) + 1
+    _local_metrics["browsers"][clean_browser] = _local_metrics["browsers"].get(clean_browser, 0) + 1
+    _local_metrics["recent_visits"].insert(0, visit_entry)
+    if len(_local_metrics["recent_visits"]) > 50:
+        _local_metrics["recent_visits"] = _local_metrics["recent_visits"][:50]
+
+    # If Firestore is configured, persist to database
+    db = get_firestore_client()
+    if db is not None:
+        try:
+            doc_ref = db.collection("analytics_metrics").document("overview")
+            safe_city = clean_city.replace(".", "_")
+            safe_platform = clean_platform.replace(".", "_")
+            safe_browser = clean_browser.replace(".", "_")
+
+            doc_ref.set({
+                "total_visits": firestore.Increment(1),
+                f"cities.{safe_city}": firestore.Increment(1),
+                f"platforms.{safe_platform}": firestore.Increment(1),
+                f"browsers.{safe_browser}": firestore.Increment(1),
+                "last_updated": now_iso,
+            }, merge=True)
+
+            db.collection("analytics_visits").add(visit_entry)
+        except Exception as e:
+            print(f"[Analytics] Warning: Failed to record visit in Firestore: {e}")
+
+
+def get_metrics_overview():
+    """Retrieve metrics overview including total visits, cities, platforms, and recent logs."""
+    db = get_firestore_client()
+    if db is None:
+        return _local_metrics
+
+    try:
+        doc = db.collection("analytics_metrics").document("overview").get()
+        if not doc.exists:
+            return _local_metrics
+
+        data = doc.to_dict() or {}
+        recent_docs = db.collection("analytics_visits").order_by("timestamp_utc", direction=firestore.Query.DESCENDING).limit(30).stream()
+        recent = [d.to_dict() for d in recent_docs]
+
+        return {
+            "total_visits": data.get("total_visits", _local_metrics["total_visits"]),
+            "cities": data.get("cities", _local_metrics["cities"]),
+            "platforms": data.get("platforms", _local_metrics["platforms"]),
+            "browsers": data.get("browsers", _local_metrics["browsers"]),
+            "recent_visits": recent or _local_metrics["recent_visits"],
+            "last_updated": data.get("last_updated"),
+        }
+    except Exception as e:
+        print(f"[Analytics] Warning: Error fetching metrics from Firestore: {e}")
+        return _local_metrics
+
+

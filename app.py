@@ -10,6 +10,8 @@ from source.firebase_db import (
     get_latest_stations,
     get_station_history,
     get_station_info,
+    record_visit,
+    get_metrics_overview,
 )
 
 PARIS_TZ = ZoneInfo("Europe/Paris")
@@ -22,8 +24,51 @@ app = flask.Flask(
 )
 
 
+def parse_user_agent(ua: str) -> tuple[str, str]:
+    """Extract (platform, browser) from User-Agent string."""
+    ua_lower = (ua or "").lower()
+
+    if "iphone" in ua_lower or "ipad" in ua_lower:
+        platform = "iOS (iPhone/iPad)"
+    elif "android" in ua_lower:
+        platform = "Android"
+    elif "macintosh" in ua_lower or "mac os" in ua_lower:
+        platform = "macOS"
+    elif "windows" in ua_lower:
+        platform = "Windows"
+    elif "linux" in ua_lower:
+        platform = "Linux"
+    else:
+        platform = "Autre"
+
+    if "crios" in ua_lower:
+        browser = "Chrome iOS"
+    elif "edg" in ua_lower:
+        browser = "Edge"
+    elif "chrome" in ua_lower and "safari" in ua_lower:
+        browser = "Chrome"
+    elif "safari" in ua_lower and "chrome" not in ua_lower:
+        browser = "Safari"
+    elif "firefox" in ua_lower or "fxios" in ua_lower:
+        browser = "Firefox"
+    else:
+        browser = "Autre"
+
+    return platform, browser
+
+
 def render_map_page():
-    """Render index.html with filesystem fallback for Vercel serverless."""
+    """Render index.html with filesystem fallback and log visit metrics."""
+    try:
+        ua = flask.request.headers.get("user-agent", "")
+        if not any(b in ua.lower() for b in ["bot", "spider", "crawl", "vercel-screenshot", "uptime"]):
+            city = flask.request.headers.get("x-vercel-ip-city") or flask.request.headers.get("cf-ipcity") or "Lyon"
+            country = flask.request.headers.get("x-vercel-ip-country") or flask.request.headers.get("cf-ipcountry") or "FR"
+            platform, browser = parse_user_agent(ua)
+            record_visit(city=city, country=country, platform=platform, browser=browser, path="/")
+    except Exception as e:
+        print(f"[Analytics] Error recording visit: {e}")
+
     try:
         return flask.render_template("index.html")
     except Exception:
@@ -34,12 +79,44 @@ def render_map_page():
         raise
 
 
+def render_metrics_page():
+    """Render metrics.html dashboard."""
+    try:
+        return flask.render_template("metrics.html")
+    except Exception:
+        metrics_path = os.path.join(BASE_DIR, "templates", "metrics.html")
+        if os.path.isfile(metrics_path):
+            with open(metrics_path, "r", encoding="utf-8") as f:
+                return flask.Response(f.read(), mimetype="text/html")
+        raise
+
+
+@app.route("/metrics", methods=["GET"])
+def metrics_page():
+    return render_metrics_page()
+
+
+@app.route("/api/metrics", methods=["GET"])
+@app.route("/api/index/api/metrics", methods=["GET"])
+def api_metrics():
+    """Return visitor metrics overview (cities, platforms, browsers, total counts)."""
+    try:
+        data = get_metrics_overview()
+        return flask.jsonify(data), 200
+    except Exception as e:
+        return flask.jsonify({"error": str(e), "total_visits": 0, "cities": {}, "platforms": {}, "browsers": {}}), 500
+
+
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def catch_all(path):
     """Catch-all route to handle Vercel rewrites and direct paths reliably."""
     req_path = flask.request.args.get("__path") or path
     clean = req_path.strip("/")
+    if clean == "metrics" or clean.startswith("metrics/"):
+        return render_metrics_page()
+    if clean == "api/metrics" or ("metrics" in clean and "api" in clean):
+        return api_metrics()
     if "stations" in clean:
         return api_stations()
     if "history" in clean:
