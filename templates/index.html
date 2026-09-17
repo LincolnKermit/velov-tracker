@@ -112,6 +112,58 @@
         </div>
     </div>
 
+    <!-- First-time Visitor Donation Popup Modal -->
+    <div id="donation-modal" class="modal-overlay hidden" onclick="closeDonationModal(event)">
+        <div class="donation-card" onclick="event.stopPropagation()">
+            <button type="button" class="modal-close-btn" onclick="closeDonationModal(event)" title="Fermer" aria-label="Fermer">✕</button>
+            <div class="donation-badge">🚲 Lyon</div>
+            <h3 class="donation-title">Bienvenue sur Vélo'v Tracker !</h3>
+            <p class="donation-message">
+                Le projet a été réalisé par un nouveau lyonnais, soutenez mon travail en faisant une donation.
+            </p>
+            <div class="donation-actions">
+                <a href="https://paypal.me/FrenchMoonlight" target="_blank" rel="noopener noreferrer" class="paypal-donate-btn" onclick="closeDonationModal()">
+                    <svg class="paypal-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                        <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.784.784 0 0 1 .773-.654h6.726c3.275 0 5.485 1.542 5.008 4.79-.37 2.518-2.023 4.238-4.484 4.54l-.45.034-.848 5.378a.64.64 0 0 1-.633.54H7.076v-.011zm11.758-13.8c-.46-1.464-1.74-2.28-3.79-2.28h-5.28c-.37 0-.68.27-.74.64L6.96 18.57h3.29l.73-4.63c.06-.37.37-.64.74-.64h1.56c3.41 0 6.07-1.39 6.85-5.36.33-1.68.04-3.07-.65-4.403z"/>
+                    </svg>
+                    Faire un don via PayPal
+                </a>
+                <button type="button" class="donation-dismiss-btn" onclick="closeDonationModal(event)">
+                    Continuer vers la carte
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enlarged Station History Modal / Bottom Sheet -->
+    <div id="history-modal" class="modal-overlay history-modal-overlay hidden" onclick="closeHistoryModal(event)">
+        <div class="history-sheet" onclick="event.stopPropagation()">
+            <div class="sheet-drag-handle"></div>
+            <div class="history-sheet-header">
+                <div class="history-sheet-titles">
+                    <h2 id="modal-station-name">Station</h2>
+                    <p id="modal-station-address">Adresse</p>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeHistoryModal(event)" title="Fermer" aria-label="Fermer">✕</button>
+            </div>
+
+            <div class="history-sheet-stats" id="modal-station-stats"></div>
+
+            <div class="history-tabs-bar">
+                <button type="button" class="history-tab-btn" data-mode="24" onclick="switchModalMode(24, this)">24 heures</button>
+                <button type="button" class="history-tab-btn" data-mode="0" onclick="switchModalMode(0, this)">Historique complet</button>
+                <button type="button" class="history-tab-btn active" data-mode="average" onclick="switchModalMode('average', this)">📊 Moyenne & Affluence</button>
+            </div>
+
+            <div id="modal-crowd-insight" class="crowd-insight-box hidden"></div>
+
+            <div class="history-sheet-chart-container">
+                <div id="modal-chart-loader" class="chart-loader">Chargement du graphique...</div>
+                <canvas id="modal-history-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
     <div id="map"></div>
 
     <script>
@@ -246,13 +298,15 @@
                         </div>
                         <div class="chart-section">
                             <div class="chart-header">
-                                <span class="chart-title">Historique de disponibilité</span>
+                                <span class="chart-title">Historique</span>
                                 <div class="chart-tabs">
-                                    <button class="chart-tab-btn active" onclick="switchChartWindow('${number}', 24, this)">24h</button>
-                                    <button class="chart-tab-btn" onclick="switchChartWindow('${number}', 0, this)">Tout</button>
+                                    <button type="button" class="chart-tab-btn active" onclick="switchChartWindow('${number}', 24, this)">24h</button>
+                                    <button type="button" class="chart-tab-btn" onclick="switchChartWindow('${number}', 0, this)">Tout</button>
+                                    <button type="button" class="chart-tab-btn" onclick="switchChartWindow('${number}', 'average', this)">Moyenne</button>
                                 </div>
+                                <button type="button" class="chart-expand-btn" onclick="openHistoryModal('${number}', currentChartWindow || 'average')" title="Agrandir le graphique">⤢</button>
                             </div>
-                            <div class="chart-container" id="container-${number}">
+                            <div class="chart-container clickable-chart" id="container-${number}" onclick="openHistoryModal('${number}', currentChartWindow || 'average')" title="Cliquer pour agrandir le graphique">
                                 <div class="chart-loader" id="loader-${number}">Chargement du graphique...</div>
                                 <canvas id="chart-${number}" style="display:none;"></canvas>
                             </div>
@@ -264,13 +318,15 @@
 
                 marker.on("popupopen", () => {
                     activeStationId = number;
-                    loadStationHistory(number, 24);
+                    loadStationHistory(number, currentChartWindow || 24);
                 });
 
                 marker.addTo(map);
 
                 markersData.push({
                     marker,
+                    number,
+                    station,
                     electrical,
                     mechanical,
                     stands,
@@ -315,17 +371,108 @@
             }
         }
 
-        // Switch chart window (24h vs All)
+        let currentChartWindow = 24;
+        let stationHistoryData = {};
+        let currentModalStationId = null;
+        let currentModalMode = 'average';
+        let modalChart = null;
+
+        // Switch chart window (24h vs All vs Moyenne)
         window.switchChartWindow = function(stationId, hours, btn) {
             const container = btn.closest(".chart-tabs");
             if (container) {
                 container.querySelectorAll(".chart-tab-btn").forEach(b => b.classList.remove("active"));
             }
             btn.classList.add("active");
+            currentChartWindow = hours;
             loadStationHistory(stationId, hours);
         };
 
-        // Fetch history and draw Chart.js
+        // Compute hourly average & crowdedness (affluence) profile
+        function computeStationAverage(history) {
+            const hoursBuckets = Array.from({ length: 24 }, () => ({
+                bikes: [],
+                stands: [],
+                electrical: [],
+                mechanical: []
+            }));
+
+            history.forEach(item => {
+                if (!item.timestamp_utc) return;
+                const d = new Date(item.timestamp_utc);
+                const h = d.getHours();
+                if (h >= 0 && h < 24) {
+                    hoursBuckets[h].bikes.push(Number(item.bikes || 0));
+                    hoursBuckets[h].stands.push(Number(item.stands || 0));
+                    hoursBuckets[h].electrical.push(Number(item.electrical || 0));
+                    hoursBuckets[h].mechanical.push(Number(item.mechanical || 0));
+                }
+            });
+
+            const labels = [];
+            const avgBikes = [];
+            const avgStands = [];
+            const avgElec = [];
+            const avgMech = [];
+            const crowdRate = [];
+
+            let peakHour = 0;
+            let peakCrowd = -1;
+            let calmHour = 0;
+            let calmCrowd = 999;
+
+            for (let h = 0; h < 24; h++) {
+                labels.push(`${String(h).padStart(2, '0')}h`);
+                const bList = hoursBuckets[h].bikes;
+                const count = bList.length;
+
+                if (count === 0) {
+                    avgBikes.push(0);
+                    avgStands.push(0);
+                    avgElec.push(0);
+                    avgMech.push(0);
+                    crowdRate.push(0);
+                    continue;
+                }
+
+                const b = Math.round((bList.reduce((acc, v) => acc + v, 0) / count) * 10) / 10;
+                const s = Math.round((hoursBuckets[h].stands.reduce((acc, v) => acc + v, 0) / count) * 10) / 10;
+                const e = Math.round((hoursBuckets[h].electrical.reduce((acc, v) => acc + v, 0) / count) * 10) / 10;
+                const m = Math.round((hoursBuckets[h].mechanical.reduce((acc, v) => acc + v, 0) / count) * 10) / 10;
+                const total = (b + s) || 1;
+                const crowd = Math.min(100, Math.round((b / total) * 100));
+
+                avgBikes.push(b);
+                avgStands.push(s);
+                avgElec.push(e);
+                avgMech.push(m);
+                crowdRate.push(crowd);
+
+                if (crowd > peakCrowd) {
+                    peakCrowd = crowd;
+                    peakHour = h;
+                }
+                if (crowd < calmCrowd) {
+                    calmCrowd = crowd;
+                    calmHour = h;
+                }
+            }
+
+            return {
+                labels,
+                avgBikes,
+                avgStands,
+                avgElec,
+                avgMech,
+                crowdRate,
+                peakHour,
+                peakCrowd: Math.max(0, peakCrowd),
+                calmHour,
+                calmCrowd: Math.max(0, calmCrowd)
+            };
+        }
+
+        // Fetch history and draw Chart.js in station popup
         async function loadStationHistory(stationId, hours) {
             const canvas = document.getElementById(`chart-${stationId}`);
             const loader = document.getElementById(`loader-${stationId}`);
@@ -336,33 +483,25 @@
             canvas.style.display = "none";
 
             try {
-                const url = hours > 0 
-                    ? `/api/history/${stationId}?hours=${hours}` 
-                    : `/api/history/${stationId}?all=true`;
-                
-                const res = await fetch(url);
-                if (!res.ok) throw new Error("No history available");
-                const data = await res.json();
-                const history = data.history || [];
+                let history = stationHistoryData[stationId];
+                if (!history || hours === 0 || hours === "average") {
+                    const url = hours === 24 
+                        ? `/api/history/${stationId}?hours=24` 
+                        : `/api/history/${stationId}?all=true`;
+                    
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error("No history available");
+                    const data = await res.json();
+                    history = data.history || [];
+                    if (hours === 0 || hours === "average") {
+                        stationHistoryData[stationId] = history;
+                    }
+                }
 
                 if (history.length === 0) {
                     loader.textContent = "Aucune donnée disponible";
                     return;
                 }
-
-                // Prepare Chart.js datasets
-                const labels = [];
-                const electricalData = [];
-                const mechanicalData = [];
-
-                history.forEach(item => {
-                    const d = new Date(item.timestamp_utc);
-                    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    const dateStr = d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
-                    labels.push(hours > 0 ? timeStr : `${timeStr} ${dateStr}`);
-                    electricalData.push(item.electrical);
-                    mechanicalData.push(item.mechanical);
-                });
 
                 if (activeChart) {
                     activeChart.destroy();
@@ -372,85 +511,498 @@
                 canvas.style.display = "block";
 
                 const ctx = canvas.getContext("2d");
-                activeChart = new Chart(ctx, {
-                    type: "line",
-                    data: {
-                        labels: labels,
-                        datasets: [
-                            {
-                                label: "Électrique",
-                                data: electricalData,
-                                borderColor: "#22c55e",
-                                backgroundColor: "rgba(34, 197, 94, 0.15)",
-                                borderWidth: 2,
-                                pointRadius: history.length > 50 ? 0 : 2,
-                                tension: 0.2,
-                                fill: true
-                            },
-                            {
-                                label: "Mécanique",
-                                data: mechanicalData,
-                                borderColor: "#f97316",
-                                backgroundColor: "rgba(249, 115, 22, 0.15)",
-                                borderWidth: 2,
-                                pointRadius: history.length > 50 ? 0 : 2,
-                                tension: 0.2,
-                                fill: true
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: {
-                            intersect: false,
-                            mode: 'index'
+
+                if (hours === "average") {
+                    const avg = computeStationAverage(history);
+                    activeChart = new Chart(ctx, {
+                        data: {
+                            labels: avg.labels,
+                            datasets: [
+                                {
+                                    type: "bar",
+                                    label: "Affluence (%)",
+                                    data: avg.crowdRate,
+                                    backgroundColor: avg.crowdRate.map(v => v >= 75 ? "rgba(239, 68, 68, 0.85)" : v >= 40 ? "rgba(249, 115, 22, 0.85)" : "rgba(34, 197, 94, 0.85)"),
+                                    borderRadius: 3,
+                                    yAxisID: "y"
+                                },
+                                {
+                                    type: "line",
+                                    label: "Vélos dispo (moy.)",
+                                    data: avg.avgBikes,
+                                    borderColor: "#3b82f6",
+                                    backgroundColor: "rgba(59, 130, 246, 0.15)",
+                                    borderWidth: 2,
+                                    pointRadius: 2,
+                                    tension: 0.3,
+                                    fill: false,
+                                    yAxisID: "y1"
+                                }
+                            ]
                         },
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top',
-                                labels: {
-                                    boxWidth: 10,
-                                    boxHeight: 10,
-                                    color: '#9ca3af',
-                                    font: { size: 10 }
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { intersect: false, mode: "index" },
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: "top",
+                                    labels: { boxWidth: 8, boxHeight: 8, color: "#9ca3af", font: { size: 9 } }
+                                },
+                                tooltip: {
+                                    backgroundColor: "#111827",
+                                    titleColor: "#f9fafb",
+                                    bodyColor: "#f3f4f6",
+                                    padding: 8,
+                                    callbacks: {
+                                        title: (items) => `Heure : ${items[0].label}`,
+                                        label: (ctx) => {
+                                            if (ctx.dataset.label.includes("Affluence")) {
+                                                const v = ctx.raw;
+                                                const tag = v >= 75 ? "🔥 Forte affluence" : v >= 40 ? "Modérée" : "Calme";
+                                                return `Affluence : ${v}% (${tag})`;
+                                            }
+                                            const idx = ctx.dataIndex;
+                                            return `Vélos : ${ctx.raw} (⚡${avg.avgElec[idx]} • 🔧${avg.avgMech[idx]})`;
+                                        }
+                                    }
                                 }
                             },
-                            tooltip: {
-                                backgroundColor: '#111827',
-                                titleColor: '#f9fafb',
-                                bodyColor: '#f3f4f6',
-                                padding: 8,
-                                displayColors: true
-                            }
-                        },
-                        scales: {
-                            x: {
-                                grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                                ticks: {
-                                    color: '#6b7280',
-                                    font: { size: 9 },
-                                    maxTicksLimit: 6
-                                }
-                            },
-                            y: {
-                                beginAtZero: true,
-                                grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                                ticks: {
-                                    color: '#6b7280',
-                                    font: { size: 9 },
-                                    precision: 0
+                            scales: {
+                                x: {
+                                    grid: { color: "rgba(255, 255, 255, 0.05)" },
+                                    ticks: { color: "#6b7280", font: { size: 8 }, maxTicksLimit: 8 }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    grid: { color: "rgba(255, 255, 255, 0.05)" },
+                                    ticks: { color: "#6b7280", font: { size: 8 }, callback: v => v + "%" }
+                                },
+                                y1: {
+                                    beginAtZero: true,
+                                    position: "right",
+                                    grid: { drawOnChartArea: false },
+                                    ticks: { color: "#3b82f6", font: { size: 8 }, precision: 0 }
                                 }
                             }
                         }
-                    }
-                });
+                    });
+                } else {
+                    const labels = [];
+                    const electricalData = [];
+                    const mechanicalData = [];
 
+                    history.forEach(item => {
+                        const d = new Date(item.timestamp_utc);
+                        const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const dateStr = d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+                        labels.push(hours > 0 ? timeStr : `${timeStr} ${dateStr}`);
+                        electricalData.push(item.electrical);
+                        mechanicalData.push(item.mechanical);
+                    });
+
+                    activeChart = new Chart(ctx, {
+                        type: "line",
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                {
+                                    label: "Électrique",
+                                    data: electricalData,
+                                    borderColor: "#22c55e",
+                                    backgroundColor: "rgba(34, 197, 94, 0.15)",
+                                    borderWidth: 2,
+                                    pointRadius: history.length > 50 ? 0 : 2,
+                                    tension: 0.2,
+                                    fill: true
+                                },
+                                {
+                                    label: "Mécanique",
+                                    data: mechanicalData,
+                                    borderColor: "#f97316",
+                                    backgroundColor: "rgba(249, 115, 22, 0.15)",
+                                    borderWidth: 2,
+                                    pointRadius: history.length > 50 ? 0 : 2,
+                                    tension: 0.2,
+                                    fill: true
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                intersect: false,
+                                mode: 'index'
+                            },
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top',
+                                    labels: {
+                                        boxWidth: 10,
+                                        boxHeight: 10,
+                                        color: '#9ca3af',
+                                        font: { size: 10 }
+                                    }
+                                },
+                                tooltip: {
+                                    backgroundColor: '#111827',
+                                    titleColor: '#f9fafb',
+                                    bodyColor: '#f3f4f6',
+                                    padding: 8,
+                                    displayColors: true
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                    ticks: {
+                                        color: '#6b7280',
+                                        font: { size: 9 },
+                                        maxTicksLimit: 6
+                                    }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                    ticks: {
+                                        color: '#6b7280',
+                                        font: { size: 9 },
+                                        precision: 0
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
             } catch (err) {
                 console.error("Error drawing chart:", err);
                 loader.textContent = "Erreur lors du chargement de l'historique";
             }
+        }
+
+        // Open enlarged station history modal (optimized for mobile & desktop)
+        function openHistoryModal(stationNumber, mode = "average") {
+            currentModalStationId = String(stationNumber || activeStationId);
+            currentModalMode = mode;
+
+            const station = allStationsData.find(s => String(s.number) === currentModalStationId) || 
+                            (markersData.find(m => String(m.number) === currentModalStationId) || {}).station;
+
+            const modal = document.getElementById("history-modal");
+            if (!modal) return;
+
+            if (station) {
+                const cleanName = String(station.name || `Station #${station.number}`).replace(/^\d+\s*-\s*/, "");
+                document.getElementById("modal-station-name").textContent = `#${station.number} ${cleanName}`;
+                document.getElementById("modal-station-address").textContent = station.address || "Lyon";
+                
+                const statsEl = document.getElementById("modal-station-stats");
+                if (statsEl) {
+                    statsEl.innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-value val-elec">${station.electrical || 0}</div>
+                            <div class="stat-label">⚡ Électrique</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value val-mech">${station.mechanical || 0}</div>
+                            <div class="stat-label">🔧 Mécanique</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value val-stands">${station.stands || 0}</div>
+                            <div class="stat-label">🅿️ Places libres</div>
+                        </div>
+                    `;
+                }
+            }
+
+            document.querySelectorAll(".history-tab-btn").forEach(btn => {
+                const m = btn.getAttribute("data-mode");
+                btn.classList.toggle("active", String(m) === String(mode));
+            });
+
+            modal.classList.remove("hidden");
+            loadModalHistory(currentModalStationId, currentModalMode);
+        }
+
+        function closeHistoryModal(event) {
+            if (event && event.target !== event.currentTarget && !event.target.classList.contains("modal-close-btn")) return;
+            const modal = document.getElementById("history-modal");
+            if (modal) modal.classList.add("hidden");
+            if (modalChart) {
+                modalChart.destroy();
+                modalChart = null;
+            }
+        }
+
+        function switchModalMode(mode, btn) {
+            const bar = btn.closest(".history-tabs-bar");
+            if (bar) {
+                bar.querySelectorAll(".history-tab-btn").forEach(b => b.classList.remove("active"));
+            }
+            btn.classList.add("active");
+            currentModalMode = mode;
+            if (currentModalStationId) {
+                loadModalHistory(currentModalStationId, mode);
+            }
+        }
+
+        async function loadModalHistory(stationId, mode) {
+            const canvas = document.getElementById("modal-history-chart");
+            const loader = document.getElementById("modal-chart-loader");
+            const insightBox = document.getElementById("modal-crowd-insight");
+            if (!canvas || !loader) return;
+
+            loader.style.display = "flex";
+            loader.textContent = "Chargement du graphique haute résolution...";
+            canvas.style.display = "none";
+
+            try {
+                let history = stationHistoryData[stationId];
+                if (!history || mode === 0 || mode === "average") {
+                    const url = mode === 24 
+                        ? `/api/history/${stationId}?hours=24` 
+                        : `/api/history/${stationId}?all=true`;
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error("No history available");
+                    const data = await res.json();
+                    history = data.history || [];
+                    if (mode === 0 || mode === "average") {
+                        stationHistoryData[stationId] = history;
+                    }
+                }
+
+                if (history.length === 0) {
+                    loader.textContent = "Aucune donnée disponible pour cette station";
+                    if (insightBox) insightBox.classList.add("hidden");
+                    return;
+                }
+
+                if (modalChart) {
+                    modalChart.destroy();
+                }
+
+                loader.style.display = "none";
+                canvas.style.display = "block";
+                const ctx = canvas.getContext("2d");
+
+                if (mode === "average") {
+                    const avg = computeStationAverage(history);
+                    if (insightBox) {
+                        insightBox.innerHTML = `
+                            <span class="insight-tag">AFFLUENCE</span>
+                            <span>🔥 Heure de pointe : <strong>${avg.peakHour}h00</strong> (${avg.peakCrowd}% d'occupation)</span>
+                            <span style="color:#d1d5db">•</span>
+                            <span>🍃 Période calme : <strong>${avg.calmHour}h00</strong> (${avg.calmCrowd}%)</span>
+                        `;
+                        insightBox.classList.remove("hidden");
+                    }
+
+                    modalChart = new Chart(ctx, {
+                        data: {
+                            labels: avg.labels,
+                            datasets: [
+                                {
+                                    type: "bar",
+                                    label: "Affluence / Fréquentation (%)",
+                                    data: avg.crowdRate,
+                                    backgroundColor: avg.crowdRate.map(v => v >= 75 ? "rgba(239, 68, 68, 0.85)" : v >= 40 ? "rgba(249, 115, 22, 0.85)" : "rgba(34, 197, 94, 0.85)"),
+                                    borderRadius: 5,
+                                    yAxisID: "y"
+                                },
+                                {
+                                    type: "line",
+                                    label: "Vélos disponibles en moyenne",
+                                    data: avg.avgBikes,
+                                    borderColor: "#3b82f6",
+                                    backgroundColor: "rgba(59, 130, 246, 0.2)",
+                                    borderWidth: 2.5,
+                                    pointRadius: 4,
+                                    pointHoverRadius: 6,
+                                    tension: 0.3,
+                                    fill: false,
+                                    yAxisID: "y1"
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { intersect: false, mode: "index" },
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: "top",
+                                    labels: { boxWidth: 12, boxHeight: 12, color: "#d1d5db", font: { size: 12, weight: "600" } }
+                                },
+                                tooltip: {
+                                    backgroundColor: "rgba(17, 24, 39, 0.96)",
+                                    titleColor: "#ffffff",
+                                    titleFont: { size: 13, weight: "bold" },
+                                    bodyColor: "#f3f4f6",
+                                    bodyFont: { size: 12 },
+                                    padding: 12,
+                                    cornerRadius: 8,
+                                    callbacks: {
+                                        title: (items) => `Créneau horaire : ${items[0].label}00 - ${items[0].label}59`,
+                                        label: (ctx) => {
+                                            if (ctx.dataset.label.includes("Affluence")) {
+                                                const v = ctx.raw;
+                                                const tag = v >= 75 ? "🔥 Très fréquenté (Heure de pointe)" : v >= 40 ? "⚡ Fréquentation normale" : "🍃 Calme";
+                                                return `Affluence : ${v}% (${tag})`;
+                                            }
+                                            const idx = ctx.dataIndex;
+                                            return `Vélos dispo en moy. : ${ctx.raw} (⚡ ${avg.avgElec[idx]} élec • 🔧 ${avg.avgMech[idx]} méca • 🅿️ ${avg.avgStands[idx]} places)`;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { color: "rgba(255, 255, 255, 0.08)" },
+                                    ticks: { color: "#9ca3af", font: { size: 11, weight: "600" } }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    title: { display: true, text: "Affluence (%)", color: "#9ca3af", font: { size: 11 } },
+                                    grid: { color: "rgba(255, 255, 255, 0.08)" },
+                                    ticks: { color: "#9ca3af", font: { size: 11 }, callback: v => v + "%" }
+                                },
+                                y1: {
+                                    beginAtZero: true,
+                                    position: "right",
+                                    title: { display: true, text: "Vélos disponibles", color: "#3b82f6", font: { size: 11 } },
+                                    grid: { drawOnChartArea: false },
+                                    ticks: { color: "#3b82f6", font: { size: 11 }, precision: 0 }
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    if (insightBox) {
+                        insightBox.innerHTML = `
+                            <span class="insight-tag" style="background:#2563eb">INFO</span>
+                            <span>Affichage chronologique détaillé de la disponibilité des vélos et des places.</span>
+                        `;
+                        insightBox.classList.remove("hidden");
+                    }
+
+                    const labels = [];
+                    const electricalData = [];
+                    const mechanicalData = [];
+                    const standsData = [];
+
+                    history.forEach(item => {
+                        const d = new Date(item.timestamp_utc);
+                        const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                        const dateStr = d.toLocaleDateString([], { day: "2-digit", month: "2-digit" });
+                        labels.push(mode > 0 ? timeStr : `${timeStr} ${dateStr}`);
+                        electricalData.push(item.electrical);
+                        mechanicalData.push(item.mechanical);
+                        standsData.push(item.stands);
+                    });
+
+                    modalChart = new Chart(ctx, {
+                        type: "line",
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                {
+                                    label: "⚡ Électrique",
+                                    data: electricalData,
+                                    borderColor: "#22c55e",
+                                    backgroundColor: "rgba(34, 197, 94, 0.2)",
+                                    borderWidth: 2.5,
+                                    pointRadius: history.length > 50 ? 0 : 3,
+                                    tension: 0.25,
+                                    fill: true
+                                },
+                                {
+                                    label: "🔧 Mécanique",
+                                    data: mechanicalData,
+                                    borderColor: "#f97316",
+                                    backgroundColor: "rgba(249, 115, 22, 0.2)",
+                                    borderWidth: 2.5,
+                                    pointRadius: history.length > 50 ? 0 : 3,
+                                    tension: 0.25,
+                                    fill: true
+                                },
+                                {
+                                    label: "🅿️ Places libres",
+                                    data: standsData,
+                                    borderColor: "#3b82f6",
+                                    borderWidth: 1.5,
+                                    borderDash: [4, 4],
+                                    pointRadius: 0,
+                                    tension: 0.2,
+                                    fill: false
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { intersect: false, mode: "index" },
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: "top",
+                                    labels: { boxWidth: 12, boxHeight: 12, color: "#d1d5db", font: { size: 12, weight: "600" } }
+                                },
+                                tooltip: {
+                                    backgroundColor: "rgba(17, 24, 39, 0.96)",
+                                    titleColor: "#ffffff",
+                                    bodyColor: "#f3f4f6",
+                                    padding: 12,
+                                    cornerRadius: 8
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { color: "rgba(255, 255, 255, 0.08)" },
+                                    ticks: { color: "#9ca3af", font: { size: 11 }, maxTicksLimit: 10 }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: "rgba(255, 255, 255, 0.08)" },
+                                    ticks: { color: "#9ca3af", font: { size: 11 }, precision: 0 }
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Error drawing modal chart:", err);
+                loader.textContent = "Erreur lors du chargement de l'historique";
+            }
+        }
+
+        // First-time user donation popup helpers
+        function checkFirstTimeDonationPopup() {
+            try {
+                const seen = localStorage.getItem("velov_donation_seen");
+                if (!seen) {
+                    setTimeout(() => {
+                        const modal = document.getElementById("donation-modal");
+                        if (modal) modal.classList.remove("hidden");
+                    }, 1200);
+                }
+            } catch (e) {
+                console.warn("Storage check error:", e);
+            }
+        }
+
+        function closeDonationModal(event) {
+            if (event && event.target !== event.currentTarget && !event.target.classList.contains("modal-close-btn") && !event.target.classList.contains("donation-dismiss-btn") && !event.target.closest(".paypal-donate-btn")) return;
+            const modal = document.getElementById("donation-modal");
+            if (modal) modal.classList.add("hidden");
+            try {
+                localStorage.setItem("velov_donation_seen", "true");
+            } catch (e) {}
         }
 
         // Toggle filter dropdown menu from search bar
@@ -508,7 +1060,7 @@
                     btn.classList.remove("tracking-passive", "loading");
                     btn.classList.add("active");
                 }
-                const targetZoom = Math.max(map.getZoom(), 16);
+                const targetZoom = 18;
                 map.flyTo([userLocation.lat, userLocation.lng], targetZoom, {
                     animate: true,
                     duration: 1.0
@@ -631,7 +1183,7 @@
 
             // Fly or pan map to position when following
             if (isFollowing) {
-                const targetZoom = Math.max(map.getZoom(), 16);
+                const targetZoom = 18;
                 if (!hadLocation || isInitial) {
                     map.flyTo([lat, lng], targetZoom, {
                         animate: true,
@@ -835,32 +1387,40 @@
         }
 
         function selectStationByNumber(stationNumber) {
-            const stationNumStr = String(stationNumber);
+            const stationNumStr = String(stationNumber).trim();
             const item = markersData.find(m => String(m.number) === stationNumStr);
-            if (!item) return;
+            const station = (item && item.station) || allStationsData.find(s => String(s.number) === stationNumStr);
+            if (!station || !station.latitude || !station.longitude) {
+                console.warn("Station not found:", stationNumber);
+                return;
+            }
 
-            const s = item.station;
             const input = document.getElementById("station-search-input");
             if (input) {
-                input.value = s.name || `Station #${s.number}`;
+                input.value = station.name || `Station #${station.number}`;
                 const clearBtn = document.getElementById("search-clear-btn");
                 if (clearBtn) clearBtn.style.display = "flex";
                 input.blur();
             }
             hideSearchDropdown();
 
-            // Fly smoothly to station
-            map.flyTo([Number(s.latitude), Number(s.longitude)], 17, {
+            // Fly smoothly to station at close street-level zoom (zoom 18)
+            map.flyTo([Number(station.latitude), Number(station.longitude)], 18, {
                 animate: true,
                 duration: 1.0
             });
 
             // Open station popup automatically
             setTimeout(() => {
-                if (item.marker) {
+                if (item && item.marker) {
                     item.marker.openPopup();
+                } else {
+                    const fallbackItem = markersData.find(m => String(m.number) === stationNumStr);
+                    if (fallbackItem && fallbackItem.marker) {
+                        fallbackItem.marker.openPopup();
+                    }
                 }
-            }, 350);
+            }, 450);
         }
 
         function onSearchKeyDown(e) {
@@ -921,6 +1481,21 @@
         // Initialize on DOM ready
         document.addEventListener("DOMContentLoaded", () => {
             initMap();
+            checkFirstTimeDonationPopup();
+
+            // Direct click handling on search results dropdown to guarantee responsive taps on mobile
+            const searchDropdown = document.getElementById("search-results-dropdown");
+            if (searchDropdown) {
+                searchDropdown.addEventListener("click", (e) => {
+                    const item = e.target.closest(".search-result-item");
+                    if (item) {
+                        const num = item.getAttribute("data-number");
+                        if (num) {
+                            selectStationByNumber(num);
+                        }
+                    }
+                });
+            }
         });
     </script>
 </body>

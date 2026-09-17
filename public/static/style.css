@@ -244,7 +244,7 @@ html, body {
     font-size: 10px;
     cursor: pointer;
     font-weight: 600;
-    transition: background 0.15s;
+    transition: background 0.15s, color 0.15s;
 }
 
 .chart-tab-btn.active {
@@ -252,10 +252,37 @@ html, body {
     color: white;
 }
 
+.chart-expand-btn {
+    background: #374151;
+    color: #9ca3af;
+    border: none;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s;
+}
+
+.chart-expand-btn:hover {
+    background: #4b5563;
+    color: #ffffff;
+}
+
 .chart-container {
     position: relative;
     height: 140px;
     width: 100%;
+}
+
+.clickable-chart {
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background-color 0.15s ease;
+}
+
+.clickable-chart:hover {
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .chart-loader {
@@ -839,6 +866,281 @@ html, body {
     color: #6b7280;
 }
 
+/* Modals Overlay (Common) */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2000;
+    background: rgba(0, 0, 0, 0.48);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+    transition: opacity 0.2s ease;
+}
+
+.modal-overlay.hidden {
+    display: none !important;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    border: none;
+    color: #4b5563;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+    transition: background 0.15s ease, color 0.15s ease;
+    z-index: 5;
+}
+
+.modal-close-btn:hover {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+/* First-time Donation Modal */
+.donation-card {
+    position: relative;
+    background: #ffffff;
+    border-radius: 24px;
+    max-width: 440px;
+    width: 100%;
+    padding: 28px 24px 22px 24px;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.1);
+    animation: modalFadeUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+}
+
+@keyframes modalFadeUp {
+    from { opacity: 0; transform: translateY(18px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.donation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 12px;
+}
+
+.donation-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #111827;
+    margin: 0 0 10px 0;
+}
+
+.donation-message {
+    font-size: 14px;
+    line-height: 1.55;
+    color: #4b5563;
+    margin: 0 0 22px 0;
+}
+
+.donation-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.paypal-donate-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    background: #0070ba;
+    color: #ffffff;
+    font-size: 14.5px;
+    font-weight: 700;
+    padding: 12px 20px;
+    border-radius: 14px;
+    text-decoration: none;
+    box-shadow: 0 4px 16px rgba(0, 112, 186, 0.35);
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.paypal-donate-btn:hover {
+    background: #005ea6;
+}
+
+.paypal-donate-btn:active {
+    transform: scale(0.98);
+}
+
+.paypal-icon {
+    flex-shrink: 0;
+}
+
+.donation-dismiss-btn {
+    background: #f3f4f6;
+    color: #4b5563;
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.donation-dismiss-btn:hover {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+/* Enlarged Station History Modal / Bottom Sheet */
+.history-sheet {
+    position: relative;
+    background: #ffffff;
+    border-radius: 24px;
+    max-width: 680px;
+    width: 100%;
+    padding: 24px 26px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+    animation: modalFadeUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+}
+
+.sheet-drag-handle {
+    display: none;
+    width: 38px;
+    height: 4px;
+    background: #d1d5db;
+    border-radius: 2px;
+    margin: 0 auto 12px auto;
+}
+
+.history-sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.history-sheet-titles h2 {
+    font-size: 18px;
+    font-weight: 800;
+    color: #111827;
+    margin: 0 0 4px 0;
+}
+
+.history-sheet-titles p {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0;
+}
+
+.history-sheet-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.history-tabs-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    background: #f3f4f6;
+    padding: 4px;
+    border-radius: 12px;
+}
+
+.history-tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #4b5563;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    text-align: center;
+}
+
+.history-tab-btn.active {
+    background: #ffffff;
+    color: #2563eb;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    font-weight: 700;
+}
+
+.crowd-insight-box {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: #fef2f2;
+    border: 1px solid #fee2e2;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    color: #991b1b;
+    margin-bottom: 12px;
+}
+
+.crowd-insight-box.hidden {
+    display: none;
+}
+
+.insight-tag {
+    background: #dc2626;
+    color: #ffffff;
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 6px;
+    letter-spacing: 0.3px;
+}
+
+.history-sheet-chart-container {
+    position: relative;
+    height: 280px;
+    width: 100%;
+    background: #1e1e1e;
+    border-radius: 16px;
+    padding: 14px;
+    box-sizing: border-box;
+}
+
+.history-sheet-chart-container canvas {
+    max-height: 252px !important;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .leaflet-control-zoom {
@@ -890,5 +1192,32 @@ html, body {
 
     .leaflet-popup-content {
         width: 280px !important;
+    }
+
+    /* Mobile Sheet for History Modal */
+    .history-modal-overlay {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .history-sheet {
+        max-width: 100%;
+        border-radius: 24px 24px 0 0;
+        max-height: 86vh;
+        padding: 14px 16px 28px 16px;
+        animation: modalSlideUpMobile 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalSlideUpMobile {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+
+    .sheet-drag-handle {
+        display: block;
+    }
+
+    .history-sheet-chart-container {
+        height: 260px;
     }
 }
