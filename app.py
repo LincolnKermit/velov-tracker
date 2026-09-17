@@ -113,6 +113,10 @@ def catch_all(path):
     """Catch-all route to handle Vercel rewrites and direct paths reliably."""
     req_path = flask.request.args.get("__path") or path
     clean = req_path.strip("/")
+    if clean.startswith("_vercel/insights/script.js"):
+        return flask.redirect("https://va.vercel-scripts.com/v1/script.js", code=302)
+    if clean.startswith("_vercel/speed-insights/script.js"):
+        return flask.redirect("https://va.vercel-scripts.com/v1/speed-insights/script.js", code=302)
     if clean == "metrics" or clean.startswith("metrics/"):
         return render_metrics_page()
     if clean == "api/metrics" or ("metrics" in clean and "api" in clean):

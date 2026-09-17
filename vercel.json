@@ -6,6 +6,10 @@
   },
   "rewrites": [
     {
+      "source": "/_vercel/(.*)",
+      "destination": "/_vercel/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/api/index.py?__path=/$1"
     }

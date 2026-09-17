@@ -16,15 +16,19 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/style.css">
 
-    <!-- Vercel Web Analytics & Speed Insights (Free on Hobby plan: visits, platform/device/OS, and city) -->
+    <!-- Vercel Web Analytics & Speed Insights Official Libraries -->
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-    </script>
-    <script defer src="/_vercel/insights/script.js"></script>
-    <script>
       window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
     </script>
-    <script defer src="/_vercel/speed-insights/script.js"></script>
+    <script defer src="https://va.vercel-scripts.com/v1/script.js"></script>
+    <script defer src="https://va.vercel-scripts.com/v1/speed-insights/script.js"></script>
+    <script type="module">
+      import { inject } from 'https://esm.sh/@vercel/analytics@1';
+      import { injectSpeedInsights } from 'https://esm.sh/@vercel/speed-insights@1';
+      inject({ scriptSrc: 'https://va.vercel-scripts.com/v1/script.js' });
+      injectSpeedInsights({ scriptSrc: 'https://va.vercel-scripts.com/v1/speed-insights/script.js' });
+    </script>
 </head>
 <body>
 
