@@ -11,6 +11,7 @@ from source.firebase_db import (
     get_station_history,
     get_station_info,
     record_visit,
+    record_shared_location,
     get_metrics_overview,
 )
 
@@ -146,6 +147,75 @@ def api_metrics():
         }), 500
 
 
+def render_cgu_page():
+    """Render cgu.html page with fallback to filesystem."""
+    try:
+        return flask.render_template("cgu.html")
+    except Exception:
+        cgu_path = os.path.join(BASE_DIR, "templates", "cgu.html")
+        if os.path.isfile(cgu_path):
+            with open(cgu_path, "r", encoding="utf-8") as f:
+                return flask.Response(f.read(), mimetype="text/html")
+        return flask.Response("Page non trouvée", status=404)
+
+
+@app.route("/cgu", methods=["GET"])
+@app.route("/terms", methods=["GET"])
+@app.route("/privacy", methods=["GET"])
+def cgu_page():
+    return render_cgu_page()
+
+
+@app.route("/api/share-location", methods=["POST"])
+@app.route("/api/index/api/share-location", methods=["POST"])
+def api_share_location():
+    """Record a user GPS location shared with explicit consent under CGU/RGPD."""
+    try:
+        data = flask.request.get_json(silent=True) or {}
+        lat = data.get("latitude")
+        lng = data.get("longitude")
+        accuracy = data.get("accuracy")
+
+        if lat is None or lng is None:
+            return flask.jsonify({"error": "Latitude et longitude requises"}), 400
+
+        try:
+            lat = float(lat)
+            lng = float(lng)
+            accuracy = float(accuracy) if accuracy is not None else None
+        except (ValueError, TypeError):
+            return flask.jsonify({"error": "Coordonnées GPS invalides"}), 400
+
+        # Extract client edge geo & device info
+        city = (
+            flask.request.headers.get("x-vercel-ip-city")
+            or flask.request.headers.get("cf-ipcity")
+            or "Lyon"
+        )
+        country = (
+            flask.request.headers.get("x-vercel-ip-country")
+            or flask.request.headers.get("cf-ipcountry")
+            or "FR"
+        )
+        ua_string = flask.request.headers.get("user-agent", "")
+        platform, browser = parse_user_agent(ua_string)
+
+        entry = record_shared_location(
+            latitude=lat,
+            longitude=lng,
+            accuracy=accuracy,
+            city=city,
+            country=country,
+            platform=platform,
+            browser=browser
+        )
+
+        return flask.jsonify({"status": "success", "recorded": True, "id": entry.get("id")}), 200
+    except Exception as e:
+        print(f"[Location] Error recording shared location: {e}")
+        return flask.jsonify({"error": str(e)}), 500
+
+
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def catch_all(path):
@@ -156,10 +226,14 @@ def catch_all(path):
         return flask.redirect("https://va.vercel-scripts.com/v1/script.js", code=302)
     if clean.startswith("_vercel/speed-insights/script.js"):
         return flask.redirect("https://va.vercel-scripts.com/v1/speed-insights/script.js", code=302)
+    if clean in ("cgu", "terms", "privacy") or clean.startswith("cgu/"):
+        return render_cgu_page()
     if clean == "metrics" or clean.startswith("metrics/"):
         return render_metrics_page()
     if clean == "api/metrics" or ("metrics" in clean and "api" in clean):
         return api_metrics()
+    if "share-location" in clean:
+        return api_share_location()
     if "stations" in clean:
         return api_stations()
     if "history" in clean:

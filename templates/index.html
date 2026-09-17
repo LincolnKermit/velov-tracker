@@ -149,6 +149,28 @@
         </div>
     </div>
 
+    <!-- Geolocation RGPD Consent Modal -->
+    <div id="geo-consent-modal" class="modal-overlay hidden" onclick="closeGeoConsentModal(event)">
+        <div class="donation-card" onclick="event.stopPropagation()">
+            <button type="button" class="modal-close-btn" onclick="closeGeoConsentModal(event)" title="Fermer" aria-label="Fermer">✕</button>
+            <div class="donation-badge" style="background:#e0f2fe; color:#0369a1;">📍 Géolocalisation & Vie privée</div>
+            <h3 class="donation-title">Autoriser la localisation ?</h3>
+            <p class="donation-message" style="font-size:13.5px; line-height:1.5; color:#475569; margin:12px 0 16px 0;">
+                Votre position GPS permet de vous situer sur la carte et de trouver instantanément les stations Vélo'v les plus proches.
+                <br><br>
+                En continuant, vous acceptez nos <a href="/cgu" target="_blank" style="color:#2563eb; font-weight:700; text-decoration:underline;">Conditions Générales d'Utilisation (CGU)</a>. Vos coordonnées sont traitées conformément au RGPD de façon anonymisée.
+            </p>
+            <div class="donation-actions">
+                <button type="button" class="paypal-donate-btn" style="background:#2563eb; justify-content:center;" onclick="acceptGeoConsentAndLocate()">
+                    📍 Accepter & Me localiser
+                </button>
+                <button type="button" class="donation-dismiss-btn" onclick="closeGeoConsentModal(event)">
+                    Refuser
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Enlarged Station History Modal / Bottom Sheet -->
     <div id="history-modal" class="modal-overlay history-modal-overlay hidden" onclick="closeHistoryModal(event)">
         <div class="history-sheet" onclick="event.stopPropagation()">
@@ -179,6 +201,11 @@
     </div>
 
     <div id="map"></div>
+
+    <!-- Discreet CGU & Privacy link -->
+    <a href="/cgu" class="map-cgu-pill" target="_blank" title="Conditions Générales d'Utilisation & Confidentialité">
+        ⚖️ CGU & Confidentialité
+    </a>
 
     <script>
         // Global state
@@ -1123,6 +1150,7 @@
         let watchId = null;
         let userLocation = null;
         let isFollowing = false;
+        let hasSharedLocationThisSession = false;
 
         function locateUser() {
             if (!navigator.geolocation) {
@@ -1130,6 +1158,37 @@
                 return;
             }
 
+            // Check if user has already seen and accepted the CGU geolocation notice
+            const hasConsent = localStorage.getItem("velov_geo_consent") === "true";
+            if (!hasConsent) {
+                showGeoConsentModal();
+                return;
+            }
+
+            startLocating();
+        }
+
+        function showGeoConsentModal() {
+            const modal = document.getElementById("geo-consent-modal");
+            if (modal) modal.classList.remove("hidden");
+        }
+
+        function closeGeoConsentModal(e) {
+            if (e && e.target !== e.currentTarget && !e.target.classList.contains("modal-close-btn") && !e.target.classList.contains("donation-dismiss-btn")) return;
+            const modal = document.getElementById("geo-consent-modal");
+            if (modal) modal.classList.add("hidden");
+        }
+
+        function acceptGeoConsentAndLocate() {
+            try {
+                localStorage.setItem("velov_geo_consent", "true");
+            } catch (e) {}
+            const modal = document.getElementById("geo-consent-modal");
+            if (modal) modal.classList.add("hidden");
+            startLocating();
+        }
+
+        function startLocating() {
             const btn = document.getElementById("locate-btn");
 
             // If already tracking and we have a location: snap back to user position
@@ -1182,10 +1241,33 @@
             }
         }
 
+        async function sendSharedLocation(lat, lng, accuracy) {
+            if (hasSharedLocationThisSession) return;
+            hasSharedLocationThisSession = true;
+            try {
+                await fetch("/api/share-location", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        latitude: lat,
+                        longitude: lng,
+                        accuracy: accuracy,
+                        consent: true
+                    })
+                });
+            } catch (e) {
+                console.warn("Location sharing logging skipped:", e);
+            }
+        }
+
         function handleLocationSuccess(pos, isInitial) {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
             const accuracy = pos.coords.accuracy;
+
+            if (isInitial) {
+                sendSharedLocation(lat, lng, accuracy);
+            }
 
             const hadLocation = (userLocation !== null);
             userLocation = { lat, lng, accuracy };

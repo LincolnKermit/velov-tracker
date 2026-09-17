@@ -6,6 +6,10 @@
     <title>Vélo'v Tracker — Métriques & Audience Privées</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
     
+    <!-- Leaflet CSS & JS for shared locations map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
     <!-- Chart.js for interactive analytics charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
@@ -119,8 +123,8 @@
         /* KPI Cards */
         .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
             margin-bottom: 24px;
         }
 
@@ -128,11 +132,11 @@
             background: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 18px;
-            padding: 18px 20px;
+            padding: 18px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.02);
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 5px;
         }
 
         .kpi-icon {
@@ -148,14 +152,14 @@
         }
 
         .kpi-value {
-            font-size: 28px;
+            font-size: 26px;
             font-weight: 800;
             color: #0f172a;
             line-height: 1.1;
         }
 
         .kpi-sub {
-            font-size: 12px;
+            font-size: 11.5px;
             color: #94a3b8;
         }
 
@@ -247,7 +251,7 @@
             border-collapse: collapse;
             font-size: 13px;
             text-align: left;
-            min-width: 500px;
+            min-width: 540px;
         }
 
         .visits-table th {
@@ -530,7 +534,7 @@
         <div class="auth-card">
             <div class="auth-icon">🔒</div>
             <h2>Espace Administrateur</h2>
-            <p>Les métriques de visites et d'audience sont privées. Entrez votre clé d'accès pour déverrouiller le tableau de bord.</p>
+            <p>Les métriques et les positions géolocalisées sont strictement privées. Entrez votre mot de passe pour déverrouiller l'accès.</p>
             <form onsubmit="handleAuthSubmit(event)">
                 <div class="auth-input-group">
                     <input 
@@ -576,10 +580,10 @@
     <main class="metrics-container" id="metrics-main">
         <div class="metrics-hero">
             <h1>
-                Audience & Visiteurs
+                Audience, Visiteurs & Localisations
                 <span style="font-size:13px; font-weight:600; color:#16a34a; background:#dcfce7; padding:3px 8px; border-radius:12px;">En direct</span>
             </h1>
-            <p>Fréquentation, villes, plateformes et appareils des visiteurs collectés par Vercel Edge.</p>
+            <p>Données d'affluence, systèmes d'exploitation et coordonnées GPS partagées avec consentement (CGU / RGPD).</p>
         </div>
 
         <!-- KPI Grid -->
@@ -589,6 +593,12 @@
                 <div class="kpi-label">Visites Totales</div>
                 <div class="kpi-value" id="val-total-visits">-</div>
                 <div class="kpi-sub">Pages vues enregistrées</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon">📍</div>
+                <div class="kpi-label">GPS Partagés</div>
+                <div class="kpi-value" id="val-total-shared" style="color:#7c3aed;">0</div>
+                <div class="kpi-sub">Utilisateurs géolocalisés</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-icon">🏙️</div>
@@ -607,6 +617,36 @@
                 <div class="kpi-label">Top Navigateur</div>
                 <div class="kpi-value" id="val-top-browser">-</div>
                 <div class="kpi-sub" id="val-top-browser-sub">Logiciel de navigation</div>
+            </div>
+        </div>
+
+        <!-- SECTION: Shared User Locations Map & Logs -->
+        <div class="panel-card" style="margin-bottom: 24px;">
+            <div class="panel-header">
+                <h3 class="panel-title">🗺️ Carte des Utilisateurs Géolocalisés (Consentement CGU)</h3>
+                <span style="font-size:12px; color:#64748b;" id="count-locations">0 positions</span>
+            </div>
+            <p style="font-size:13px; color:#64748b; margin:0 0 14px 0;">
+                Points GPS enregistrés lorsque les visiteurs ont cliqué sur le bouton de géolocalisation pour trouver des Vélo'v.
+            </p>
+            <div id="shared-locations-map" style="height: 380px; width: 100%; border-radius: 14px; border: 1px solid #e2e8f0; margin-bottom: 16px;"></div>
+            
+            <div class="table-responsive">
+                <table class="visits-table">
+                    <thead>
+                        <tr>
+                            <th>Date & Heure</th>
+                            <th>Coordonnées GPS</th>
+                            <th>Précision</th>
+                            <th>Ville (Edge)</th>
+                            <th>Appareil</th>
+                            <th>Lien Externe</th>
+                        </tr>
+                    </thead>
+                    <tbody id="locations-tbody">
+                        <tr><td colspan="6" class="empty-state">Chargement des positions GPS...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -687,11 +727,11 @@
             <div class="vercel-card-left">
                 <h3>
                     <svg viewBox="0 0 76 65" height="16" fill="currentColor"><path d="M37.5274 0L75.0548 65H0L37.5274 0Z"/></svg>
-                    Vercel Web Analytics Officiel Actif (Hobby Gratuit)
+                    Vercel Web Analytics & Speed Insights Actif
                 </h3>
                 <p>
-                    La librairie <code>@vercel/analytics</code> collecte également vos données de façon privée et sécurisée.<br>
-                    Vous pouvez consulter vos graphiques géographiques complets sur le tableau de bord Vercel.
+                    La librairie officielle <code>@vercel/analytics</code> collecte vos données de performance et de fréquentation globale.<br>
+                    Consultez vos graphiques détaillés sur votre console Vercel.
                 </p>
             </div>
             <a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer" class="vercel-btn">
@@ -701,10 +741,12 @@
     </main>
 
     <script>
-        // Chart instances
+        // Chart & Map instances
         let chartCitiesInstance = null;
         let chartPlatformsInstance = null;
         let chartBrowsersInstance = null;
+        let sharedMap = null;
+        let sharedMarkersLayer = null;
 
         // Retrieve auth token from URL query, localStorage, or cookie
         function getStoredKey() {
@@ -773,7 +815,7 @@
                 });
 
                 if (res.status === 401) {
-                    showAuthOverlay("❌ Clé d'accès incorrecte.");
+                    showAuthOverlay("❌ Mot de passe ou clé incorrecte.");
                     btn.disabled = false;
                     btn.textContent = "Déverrouiller";
                     return;
@@ -817,9 +859,138 @@
             }
         }
 
+        function initSharedMap() {
+            if (sharedMap) return;
+            const container = document.getElementById("shared-locations-map");
+            if (!container) return;
+
+            sharedMap = L.map("shared-locations-map", {
+                center: [45.7578, 4.832],
+                zoom: 12
+            });
+
+            L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                maxZoom: 19
+            }).addTo(sharedMap);
+
+            sharedMarkersLayer = L.featureGroup().addTo(sharedMap);
+        }
+
+        function renderSharedLocations(locations) {
+            initSharedMap();
+            if (!sharedMap || !sharedMarkersLayer) return;
+
+            sharedMarkersLayer.clearLayers();
+            const countEl = document.getElementById("count-locations");
+            if (countEl) countEl.textContent = `${locations.length} position${locations.length > 1 ? 's' : ''}`;
+
+            const tbody = document.getElementById("locations-tbody");
+            if (!locations || locations.length === 0) {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Aucune position GPS partagée pour le moment.</td></tr>';
+                return;
+            }
+
+            let tableHtml = "";
+            const bounds = [];
+
+            locations.forEach((loc, idx) => {
+                const lat = Number(loc.latitude);
+                const lng = Number(loc.longitude);
+                if (isNaN(lat) || isNaN(lng)) return;
+
+                bounds.push([lat, lng]);
+
+                let dateStr = loc.timestamp_utc || "";
+                if (dateStr) {
+                    try {
+                        const d = new Date(dateStr);
+                        dateStr = d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }) + " " +
+                                  d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                    } catch (e) {}
+                }
+
+                const acc = loc.accuracy ? `±${Math.round(loc.accuracy)} m` : "±15 m";
+
+                // Marker on Leaflet
+                const marker = L.circleMarker([lat, lng], {
+                    radius: 9,
+                    fillColor: "#7c3aed",
+                    color: "#ffffff",
+                    weight: 2.5,
+                    opacity: 1,
+                    fillOpacity: 0.95
+                });
+
+                if (loc.accuracy && loc.accuracy < 600) {
+                    L.circle([lat, lng], {
+                        radius: loc.accuracy,
+                        color: "#7c3aed",
+                        weight: 1,
+                        opacity: 0.35,
+                        fillColor: "#7c3aed",
+                        fillOpacity: 0.08,
+                        interactive: false
+                    }).addTo(sharedMarkersLayer);
+                }
+
+                marker.bindPopup(`
+                    <div style="font-family:sans-serif; font-size:12.5px; line-height:1.45; min-width:200px;">
+                        <div style="font-weight:800; font-size:13.5px; color:#0f172a; margin-bottom:4px;">
+                            📍 Position Utilisateur #${idx + 1}
+                        </div>
+                        <div style="color:#64748b; font-size:11.5px; margin-bottom:6px;">🕒 ${escapeHtml(dateStr)}</div>
+                        <div><strong>Coordonnées :</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+                        <div><strong>Précision :</strong> ${acc}</div>
+                        <div><strong>Ville :</strong> ${escapeHtml(loc.city || 'Lyon')} (${escapeHtml(loc.country || 'FR')})</div>
+                        <div><strong>Appareil :</strong> ${escapeHtml(loc.platform || 'Autre')} (${escapeHtml(loc.browser || 'Autre')})</div>
+                        <div style="margin-top:8px; padding-top:6px; border-top:1px solid #e2e8f0;">
+                            <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:700; text-decoration:none;">
+                                Ouvrir sur Google Maps ↗
+                            </a>
+                        </div>
+                    </div>
+                `);
+
+                marker.addTo(sharedMarkersLayer);
+
+                // Table Row
+                tableHtml += `
+                    <tr>
+                        <td style="white-space:nowrap; font-size:12px; color:#64748b;">${escapeHtml(dateStr)}</td>
+                        <td>
+                            <strong style="color:#0f172a;">${lat.toFixed(5)}, ${lng.toFixed(5)}</strong>
+                        </td>
+                        <td><span style="font-size:11.5px; background:#ede9fe; color:#6d28d9; padding:2px 7px; border-radius:6px; font-weight:700;">${acc}</span></td>
+                        <td>${escapeHtml(loc.city || 'Lyon')}</td>
+                        <td><span class="platform-badge">${escapeHtml(loc.platform || 'Autre')}</span></td>
+                        <td>
+                            <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:600; text-decoration:none; font-size:12px;">
+                                Ouvrir Maps ↗
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (tbody) tbody.innerHTML = tableHtml;
+
+            if (bounds.length > 0) {
+                try {
+                    sharedMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+                } catch (e) {}
+            }
+        }
+
         function renderMetrics(data) {
             const total = data.total_visits || 0;
             document.getElementById("val-total-visits").textContent = total;
+
+            const totalShared = data.total_shared_locations || (data.shared_locations ? data.shared_locations.length : 0);
+            document.getElementById("val-total-shared").textContent = totalShared;
+
+            // Render shared locations map & table
+            renderSharedLocations(data.shared_locations || []);
 
             // Top City
             const cities = data.cities || {};

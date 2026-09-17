@@ -388,16 +388,80 @@ def record_visit(city: str, country: str, platform: str, browser: str, path: str
             print(f"[Analytics] Warning: Failed to record visit in Firestore: {e}")
 
 
-def get_metrics_overview():
-    """Retrieve metrics overview including total visits, cities, platforms, and recent logs."""
+_local_shared_locations = []
+
+
+def record_shared_location(latitude: float, longitude: float, accuracy: float = None, city: str = "Lyon", country: str = "FR", platform: str = "Autre", browser: str = "Autre"):
+    """Record a user GPS location shared with explicit consent under CGU/RGPD."""
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    clean_city = (city or "Lyon").strip().title()
+    clean_country = (country or "FR").strip().upper()
+    clean_platform = (platform or "Autre").strip()
+    clean_browser = (browser or "Autre").strip()
+
+    entry = {
+        "id": f"loc_{int(datetime.now().timestamp() * 1000)}",
+        "timestamp_utc": now_iso,
+        "latitude": round(float(latitude), 6),
+        "longitude": round(float(longitude), 6),
+        "accuracy": round(float(accuracy), 1) if accuracy is not None else None,
+        "city": clean_city,
+        "country": clean_country,
+        "platform": clean_platform,
+        "browser": clean_browser,
+        "consent_rgpd": True,
+    }
+
+    _local_shared_locations.insert(0, entry)
+    if len(_local_shared_locations) > 100:
+        _local_shared_locations.pop()
+
+    db = get_firestore_client()
+    if db is not None:
+        try:
+            db.collection("analytics_shared_locations").add(entry)
+            db.collection("analytics_metrics").document("overview").set({
+                "total_shared_locations": firestore.Increment(1),
+                "last_location_shared": now_iso,
+            }, merge=True)
+        except Exception as e:
+            print(f"[Analytics] Warning: Failed to record shared location in Firestore: {e}")
+
+    return entry
+
+
+def get_shared_locations(limit: int = 50):
+    """Retrieve list of shared user locations (latest first)."""
     db = get_firestore_client()
     if db is None:
-        return _local_metrics
+        return _local_shared_locations[:limit]
+
+    try:
+        docs = db.collection("analytics_shared_locations").order_by("timestamp_utc", direction=firestore.Query.DESCENDING).limit(limit).stream()
+        results = [d.to_dict() for d in docs]
+        return results if results else _local_shared_locations[:limit]
+    except Exception as e:
+        print(f"[Analytics] Warning: Failed to fetch shared locations from Firestore: {e}")
+        return _local_shared_locations[:limit]
+
+
+def get_metrics_overview():
+    """Retrieve metrics overview including total visits, cities, platforms, shared locations, and recent logs."""
+    shared_locs = get_shared_locations(50)
+    local_data = {
+        **_local_metrics,
+        "total_shared_locations": len(_local_shared_locations),
+        "shared_locations": shared_locs,
+    }
+
+    db = get_firestore_client()
+    if db is None:
+        return local_data
 
     try:
         doc = db.collection("analytics_metrics").document("overview").get()
         if not doc.exists:
-            return _local_metrics
+            return local_data
 
         data = doc.to_dict() or {}
         recent_docs = db.collection("analytics_visits").order_by("timestamp_utc", direction=firestore.Query.DESCENDING).limit(30).stream()
@@ -405,14 +469,16 @@ def get_metrics_overview():
 
         return {
             "total_visits": data.get("total_visits", _local_metrics["total_visits"]),
+            "total_shared_locations": data.get("total_shared_locations", len(shared_locs)),
             "cities": data.get("cities", _local_metrics["cities"]),
             "platforms": data.get("platforms", _local_metrics["platforms"]),
             "browsers": data.get("browsers", _local_metrics["browsers"]),
             "recent_visits": recent or _local_metrics["recent_visits"],
+            "shared_locations": shared_locs,
             "last_updated": data.get("last_updated"),
         }
     except Exception as e:
         print(f"[Analytics] Warning: Error fetching metrics from Firestore: {e}")
-        return _local_metrics
+        return local_data
 
 
