@@ -26,44 +26,6 @@
         </div>
     </div>
 
-    <div id="filter-panel" class="minimized">
-        <button id="filter-toggle-btn" type="button" onclick="toggleFilterPanel()" aria-expanded="false" title="Filtrer les résultats">
-            <span class="filter-btn-text">🚲 Filtrer les résultats</span>
-            <span id="filter-arrow" class="arrow-icon">▲</span>
-        </button>
-        <div id="filter-content">
-            <label>
-                <input type="radio" name="filter" value="none" checked onchange="applyFilter(this.value)">
-                Toutes les stations
-                <span class="count-badge" id="count-none">-</span>
-            </label>
-            <label>
-                <input type="radio" name="filter" value="electrical" onchange="applyFilter(this.value)">
-                ⚡ Vélos électriques
-                <span class="count-badge" id="count-electrical">-</span>
-            </label>
-            <label>
-                <input type="radio" name="filter" value="mechanical" onchange="applyFilter(this.value)">
-                🔧 Vélos mécaniques
-                <span class="count-badge" id="count-mechanical">-</span>
-            </label>
-            <label>
-                <input type="radio" name="filter" value="stands" onchange="applyFilter(this.value)">
-                🅿️ Places libres
-                <span class="count-badge" id="count-stands">-</span>
-            </label>
-            <hr>
-            <div id="legend">
-                <div><span class="dot" style="background:#16a34a"></span> 5+ vélos dispo</div>
-                <div><span class="dot" style="background:#ea580c"></span> 1–4 vélos dispo</div>
-                <div><span class="dot" style="background:#dc2626"></span> Aucun vélo dispo</div>
-            </div>
-            <button id="filter-close-btn" type="button" onclick="toggleFilterPanel()" title="Réduire les filtres">
-                Réduire les filtres ✕
-            </button>
-        </div>
-    </div>
-
     <!-- Geolocation Button (Apple Maps style) -->
     <button id="locate-btn" type="button" onclick="locateUser()" title="Localiser ma position" aria-label="Localiser ma position">
         <svg id="locate-icon" viewBox="0 0 24 24" width="20" height="20">
@@ -74,7 +36,7 @@
     <!-- Toast message for notifications -->
     <div id="toast-message" class="toast-message" role="status" aria-live="polite"></div>
 
-    <!-- Search Bar (Rounded corners) -->
+    <!-- Search Bar (Rounded corners) with integrated Filter Icon -->
     <div id="search-container">
         <div id="search-bar-wrapper">
             <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -97,8 +59,57 @@
             <button id="search-clear-btn" type="button" onclick="clearSearch()" title="Effacer la recherche" aria-label="Effacer">
                 ✕
             </button>
+            <div class="search-divider"></div>
+            <button id="search-filter-btn" type="button" onclick="toggleFilterMenu(event)" title="Filtrer les stations" aria-label="Filtrer les stations" aria-expanded="false">
+                <svg class="search-filter-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="4" y1="21" x2="4" y2="14"></line>
+                    <line x1="4" y1="10" x2="4" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12" y2="3"></line>
+                    <line x1="20" y1="21" x2="20" y2="16"></line>
+                    <line x1="20" y1="12" x2="20" y2="3"></line>
+                    <line x1="1" y1="14" x2="7" y2="14"></line>
+                    <line x1="9" y1="8" x2="15" y2="8"></line>
+                    <line x1="17" y1="16" x2="23" y2="16"></line>
+                </svg>
+                <span id="filter-active-dot" class="filter-active-dot hidden"></span>
+            </button>
         </div>
         <div id="search-results-dropdown" class="search-dropdown hidden"></div>
+        <div id="filter-dropdown-menu" class="filter-dropdown hidden">
+            <div class="filter-dropdown-header">
+                <h3>🚲 Filtrer les stations</h3>
+                <button type="button" class="filter-close-x-btn" onclick="hideFilterMenu()" title="Fermer">✕</button>
+            </div>
+            <div class="filter-dropdown-body">
+                <label>
+                    <input type="radio" name="filter" value="none" checked onchange="applyFilter(this.value)">
+                    Toutes les stations
+                    <span class="count-badge" id="count-none">-</span>
+                </label>
+                <label>
+                    <input type="radio" name="filter" value="electrical" onchange="applyFilter(this.value)">
+                    ⚡ Vélos électriques
+                    <span class="count-badge" id="count-electrical">-</span>
+                </label>
+                <label>
+                    <input type="radio" name="filter" value="mechanical" onchange="applyFilter(this.value)">
+                    🔧 Vélos mécaniques
+                    <span class="count-badge" id="count-mechanical">-</span>
+                </label>
+                <label>
+                    <input type="radio" name="filter" value="stands" onchange="applyFilter(this.value)">
+                    🅿️ Places libres
+                    <span class="count-badge" id="count-stands">-</span>
+                </label>
+                <hr>
+                <div id="legend">
+                    <div><span class="dot" style="background:#16a34a"></span> 5+ vélos dispo</div>
+                    <div><span class="dot" style="background:#ea580c"></span> 1–4 vélos dispo</div>
+                    <div><span class="dot" style="background:#dc2626"></span> Aucun vélo dispo</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="map"></div>
@@ -125,24 +136,13 @@
                 maxZoom: 19
             }).addTo(map);
 
-            // Tap map to close search dropdown and minimize filter panel on mobile
+            // Tap map to close search dropdown and filter dropdown
             map.on("click", () => {
                 hideSearchDropdown();
-                if (window.innerWidth <= 768) {
-                    const panel = document.getElementById("filter-panel");
-                    if (panel && !panel.classList.contains("minimized")) {
-                        toggleFilterPanel();
-                    }
-                }
+                hideFilterMenu();
             });
 
             // Prevent map interactions when touching or scrolling UI controls
-            const panelEl = document.getElementById("filter-panel");
-            if (panelEl && typeof L !== "undefined" && L.DomEvent) {
-                L.DomEvent.disableClickPropagation(panelEl);
-                L.DomEvent.disableScrollPropagation(panelEl);
-            }
-
             const locateBtnEl = document.getElementById("locate-btn");
             if (locateBtnEl && typeof L !== "undefined" && L.DomEvent) {
                 L.DomEvent.disableClickPropagation(locateBtnEl);
@@ -302,6 +302,17 @@
                     el.style.display = show ? "block" : "none";
                 }
             });
+
+            // Update filter icon active state & indicator dot
+            const filterBtn = document.getElementById("search-filter-btn");
+            const dot = document.getElementById("filter-active-dot");
+            const isFiltered = (filterType !== "none");
+            if (filterBtn) {
+                filterBtn.classList.toggle("active", isFiltered);
+            }
+            if (dot) {
+                dot.classList.toggle("hidden", !isFiltered);
+            }
         }
 
         // Switch chart window (24h vs All)
@@ -442,39 +453,34 @@
             }
         }
 
-        // Toggle filter panel (minimized / expanded)
-        function toggleFilterPanel() {
-            const panel = document.getElementById("filter-panel");
-            const btn = document.getElementById("filter-toggle-btn");
-            if (!panel || !btn) return;
-            const isMinimized = panel.classList.toggle("minimized");
-            btn.setAttribute("aria-expanded", !isMinimized);
-            updateFilterArrow(isMinimized);
-        }
+        // Toggle filter dropdown menu from search bar
+        function toggleFilterMenu(event) {
+            if (event) event.stopPropagation();
+            const menu = document.getElementById("filter-dropdown-menu");
+            const btn = document.getElementById("search-filter-btn");
+            if (!menu || !btn) return;
 
-        function updateFilterArrow(isMinimized) {
-            const arrow = document.getElementById("filter-arrow");
-            if (!arrow) return;
-            const isMobile = window.innerWidth <= 768;
-            if (isMobile) {
-                arrow.textContent = isMinimized ? "▲" : "▼";
+            hideSearchDropdown();
+
+            const isHidden = menu.classList.contains("hidden");
+            if (isHidden) {
+                menu.classList.remove("hidden");
+                btn.classList.add("open");
+                btn.setAttribute("aria-expanded", "true");
             } else {
-                arrow.textContent = isMinimized ? "▼" : "▲";
+                menu.classList.add("hidden");
+                btn.classList.remove("open");
+                btn.setAttribute("aria-expanded", "false");
             }
         }
 
-        function checkMobileInitialFilterState() {
-            const panel = document.getElementById("filter-panel");
-            const btn = document.getElementById("filter-toggle-btn");
-            if (!panel || !btn) return;
-            if (window.innerWidth <= 768) {
-                panel.classList.add("minimized");
+        function hideFilterMenu() {
+            const menu = document.getElementById("filter-dropdown-menu");
+            const btn = document.getElementById("search-filter-btn");
+            if (menu) menu.classList.add("hidden");
+            if (btn) {
+                btn.classList.remove("open");
                 btn.setAttribute("aria-expanded", "false");
-                updateFilterArrow(true);
-            } else {
-                panel.classList.remove("minimized");
-                btn.setAttribute("aria-expanded", "true");
-                updateFilterArrow(false);
             }
         }
 
@@ -696,6 +702,7 @@
         }
 
         function onSearchInput(query) {
+            hideFilterMenu();
             const clearBtn = document.getElementById("search-clear-btn");
             if (clearBtn) {
                 clearBtn.style.display = query.length > 0 ? "flex" : "none";
@@ -902,22 +909,18 @@
             });
         }
 
-        // Dismiss search dropdown when clicking outside
+        // Dismiss search dropdown and filter menu when clicking outside
         document.addEventListener("click", (e) => {
             const searchContainer = document.getElementById("search-container");
             if (searchContainer && !searchContainer.contains(e.target)) {
                 hideSearchDropdown();
+                hideFilterMenu();
             }
         });
 
         // Initialize on DOM ready
         document.addEventListener("DOMContentLoaded", () => {
-            checkMobileInitialFilterState();
             initMap();
-        });
-        window.addEventListener("resize", () => {
-            const panel = document.getElementById("filter-panel");
-            updateFilterArrow(panel ? panel.classList.contains("minimized") : false);
         });
     </script>
 </body>
