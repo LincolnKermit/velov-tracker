@@ -164,19 +164,25 @@
         .donate-link-btn {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            background: #0070ba;
-            color: #ffffff;
+            gap: 8px;
+            background: #FFDD00;
+            color: #000000;
             text-decoration: none;
-            padding: 10px 20px;
+            padding: 11px 22px;
             border-radius: 12px;
             font-size: 14px;
             font-weight: 700;
-            transition: background 0.15s ease;
+            box-shadow: 0 4px 14px rgba(255, 221, 0, 0.4);
+            transition: background 0.15s ease, transform 0.1s ease;
         }
 
         .donate-link-btn:hover {
-            background: #005ea6;
+            background: #facc15;
+            transform: translateY(-1px);
+        }
+
+        .donate-link-btn:active {
+            transform: translateY(0);
         }
 
         @media (max-width: 640px) {
@@ -321,8 +327,8 @@
                 Ce service bénévole a été développé avec ❤️ pour la communauté des cyclistes de Lyon.<br>
                 Vous pouvez soutenir l'hébergement et le développement continu par un don libre :
             </p>
-            <a href="https://paypal.me/FrenchMoonlight" target="_blank" rel="noopener noreferrer" class="donate-link-btn">
-                ☕ Soutenir le projet sur PayPal
+            <a href="https://buymeacoffee.com/lincolnkermit" target="_blank" rel="noopener noreferrer" class="donate-link-btn">
+                ☕ M'offrir un café sur Buy Me a Coffee
             </a>
         </div>
     </main>
