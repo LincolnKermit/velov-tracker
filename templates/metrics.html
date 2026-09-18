@@ -13,10 +13,19 @@
     <!-- Chart.js for interactive analytics charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="/static/style.css">
-
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            height: auto;
+            min-height: 100%;
+            overflow-x: hidden;
+            overflow-y: auto !important;
+            scroll-behavior: smooth;
+        }
+
         body {
             background: #f8fafc;
             color: #1e293b;
@@ -24,6 +33,10 @@
             margin: 0;
             padding: 0;
             min-height: 100vh;
+            height: auto;
+            overflow-x: hidden;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
         }
 
         .metrics-navbar {
