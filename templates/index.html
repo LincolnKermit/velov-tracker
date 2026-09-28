@@ -13,6 +13,11 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
+    <!-- Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/style.css">
 
@@ -32,15 +37,131 @@
 </head>
 <body>
 
-    <div id="app-header">
-        <h1>🚲 Vélo'v Tracker Lyon</h1>
-        <div class="live-indicator">
-            <span class="pulse-dot"></span>
-            <span id="header-status">Direct</span>
+    <!-- Unified Top Floating Island / Navigation -->
+    <header id="top-nav-bar">
+        <!-- Brand & Live Pulse -->
+        <div class="nav-brand">
+            <div class="brand-icon-wrap">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="5.5" cy="17.5" r="3.5"/>
+                    <circle cx="18.5" cy="17.5" r="3.5"/>
+                    <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9.5 12l3-5.5H16"/>
+                    <path d="M5.5 17.5 12 17.5"/>
+                </svg>
+            </div>
+            <div class="brand-titles">
+                <span class="brand-title">VÉLO'V</span>
+                <span class="brand-city">LYON</span>
+            </div>
+            <div class="nav-live-badge" title="Mise à jour en direct">
+                <span class="pulse-dot"></span>
+                <span id="header-status">Direct</span>
+            </div>
         </div>
-    </div>
 
-    <!-- Geolocation Button (Apple Maps style) -->
+        <div class="nav-divider"></div>
+
+        <!-- Integrated Search Container -->
+        <div id="search-container">
+            <div id="search-bar-wrapper">
+                <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input 
+                    id="station-search-input" 
+                    type="text" 
+                    placeholder="Station, adresse, n°..." 
+                    autocomplete="off" 
+                    autocorrect="off" 
+                    autocapitalize="off" 
+                    spellcheck="false"
+                    aria-label="Rechercher une station"
+                    oninput="onSearchInput(this.value)"
+                    onkeydown="onSearchKeyDown(event)"
+                    onfocus="onSearchFocus()"
+                >
+                <button id="search-clear-btn" type="button" onclick="clearSearch()" title="Effacer la recherche" aria-label="Effacer">
+                    ✕
+                </button>
+                <div class="search-divider"></div>
+                <button id="search-filter-btn" type="button" onclick="toggleFilterMenu(event)" title="Filtrer les stations" aria-label="Filtrer les stations" aria-expanded="false">
+                    <svg class="search-filter-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="4" y1="21" x2="4" y2="14"></line>
+                        <line x1="4" y1="10" x2="4" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12" y2="3"></line>
+                        <line x1="20" y1="21" x2="20" y2="16"></line>
+                        <line x1="20" y1="12" x2="20" y2="3"></line>
+                        <line x1="1" y1="14" x2="7" y2="14"></line>
+                        <line x1="9" y1="8" x2="15" y2="8"></line>
+                        <line x1="17" y1="16" x2="23" y2="16"></line>
+                    </svg>
+                    <span id="filter-active-dot" class="filter-active-dot hidden"></span>
+                </button>
+            </div>
+
+            <!-- Search Results Dropdown -->
+            <div id="search-results-dropdown" class="search-dropdown hidden"></div>
+
+            <!-- Filter Dropdown Menu -->
+            <div id="filter-dropdown-menu" class="filter-dropdown hidden">
+                <div class="filter-dropdown-header">
+                    <span class="filter-dropdown-title">Disponibilité</span>
+                    <button type="button" class="filter-close-x-btn" onclick="hideFilterMenu()" title="Fermer">✕</button>
+                </div>
+                <div class="filter-dropdown-body">
+                    <label class="filter-chip">
+                        <input type="radio" name="filter" value="none" checked onchange="applyFilter(this.value)">
+                        <span class="filter-chip-inner">
+                            <span class="filter-chip-label">Toutes les stations</span>
+                            <span class="count-badge" id="count-none">-</span>
+                        </span>
+                    </label>
+                    <label class="filter-chip">
+                        <input type="radio" name="filter" value="electrical" onchange="applyFilter(this.value)">
+                        <span class="filter-chip-inner">
+                            <span class="filter-chip-icon icon-elec">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                            </span>
+                            <span class="filter-chip-label">Vélos électriques</span>
+                            <span class="count-badge" id="count-electrical">-</span>
+                        </span>
+                    </label>
+                    <label class="filter-chip">
+                        <input type="radio" name="filter" value="mechanical" onchange="applyFilter(this.value)">
+                        <span class="filter-chip-inner">
+                            <span class="filter-chip-icon icon-mech">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                            </span>
+                            <span class="filter-chip-label">Vélos mécaniques</span>
+                            <span class="count-badge" id="count-mechanical">-</span>
+                        </span>
+                    </label>
+                    <label class="filter-chip">
+                        <input type="radio" name="filter" value="stands" onchange="applyFilter(this.value)">
+                        <span class="filter-chip-inner">
+                            <span class="filter-chip-icon icon-stands">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>
+                            </span>
+                            <span class="filter-chip-label">Places libres</span>
+                            <span class="count-badge" id="count-stands">-</span>
+                        </span>
+                    </label>
+                </div>
+                <div class="filter-legend">
+                    <span class="legend-title">Disponibilité</span>
+                    <div class="legend-items">
+                        <span class="legend-item"><span class="legend-dot dot-green"></span> 5+ vélos</span>
+                        <span class="legend-item"><span class="legend-dot dot-orange"></span> 1–4 vélos</span>
+                        <span class="legend-item"><span class="legend-dot dot-red"></span> 0 vélo</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Geolocation Button (Apple Maps style circular FAB) -->
     <button id="locate-btn" type="button" onclick="locateUser()" title="Localiser ma position" aria-label="Localiser ma position">
         <svg id="locate-icon" viewBox="0 0 24 24" width="20" height="20">
             <polygon class="arrow-shape" points="3 11 22 2 13 21 11 13 3 11"></polygon>
@@ -50,94 +171,21 @@
     <!-- Toast message for notifications -->
     <div id="toast-message" class="toast-message" role="status" aria-live="polite"></div>
 
-    <!-- Search Bar (Rounded corners) with integrated Filter Icon -->
-    <div id="search-container">
-        <div id="search-bar-wrapper">
-            <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input 
-                id="station-search-input" 
-                type="text" 
-                placeholder="Bellecour, 3012, ..." 
-                autocomplete="off" 
-                autocorrect="off" 
-                autocapitalize="off" 
-                spellcheck="false"
-                aria-label="Rechercher une station"
-                oninput="onSearchInput(this.value)"
-                onkeydown="onSearchKeyDown(event)"
-                onfocus="onSearchFocus()"
-            >
-            <button id="search-clear-btn" type="button" onclick="clearSearch()" title="Effacer la recherche" aria-label="Effacer">
-                ✕
-            </button>
-            <div class="search-divider"></div>
-            <button id="search-filter-btn" type="button" onclick="toggleFilterMenu(event)" title="Filtrer les stations" aria-label="Filtrer les stations" aria-expanded="false">
-                <svg class="search-filter-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="4" y1="21" x2="4" y2="14"></line>
-                    <line x1="4" y1="10" x2="4" y2="3"></line>
-                    <line x1="12" y1="21" x2="12" y2="12"></line>
-                    <line x1="12" y1="8" x2="12" y2="3"></line>
-                    <line x1="20" y1="21" x2="20" y2="16"></line>
-                    <line x1="20" y1="12" x2="20" y2="3"></line>
-                    <line x1="1" y1="14" x2="7" y2="14"></line>
-                    <line x1="9" y1="8" x2="15" y2="8"></line>
-                    <line x1="17" y1="16" x2="23" y2="16"></line>
-                </svg>
-                <span id="filter-active-dot" class="filter-active-dot hidden"></span>
-            </button>
-        </div>
-        <div id="search-results-dropdown" class="search-dropdown hidden"></div>
-        <div id="filter-dropdown-menu" class="filter-dropdown hidden">
-            <div class="filter-dropdown-header">
-                <h3>🚲 Filtrer les stations</h3>
-                <button type="button" class="filter-close-x-btn" onclick="hideFilterMenu()" title="Fermer">✕</button>
-            </div>
-            <div class="filter-dropdown-body">
-                <label>
-                    <input type="radio" name="filter" value="none" checked onchange="applyFilter(this.value)">
-                    Toutes les stations
-                    <span class="count-badge" id="count-none">-</span>
-                </label>
-                <label>
-                    <input type="radio" name="filter" value="electrical" onchange="applyFilter(this.value)">
-                    ⚡ Vélos électriques
-                    <span class="count-badge" id="count-electrical">-</span>
-                </label>
-                <label>
-                    <input type="radio" name="filter" value="mechanical" onchange="applyFilter(this.value)">
-                    🔧 Vélos mécaniques
-                    <span class="count-badge" id="count-mechanical">-</span>
-                </label>
-                <label>
-                    <input type="radio" name="filter" value="stands" onchange="applyFilter(this.value)">
-                    🅿️ Places libres
-                    <span class="count-badge" id="count-stands">-</span>
-                </label>
-                <hr>
-                <div id="legend">
-                    <div><span class="dot" style="background:#16a34a"></span> 5+ vélos dispo</div>
-                    <div><span class="dot" style="background:#ea580c"></span> 1–4 vélos dispo</div>
-                    <div><span class="dot" style="background:#dc2626"></span> Aucun vélo dispo</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- First-time Visitor Donation Popup Modal -->
     <div id="donation-modal" class="modal-overlay hidden" onclick="closeDonationModal(event)">
         <div class="donation-card" onclick="event.stopPropagation()">
             <button type="button" class="modal-close-btn" onclick="closeDonationModal(event)" title="Fermer" aria-label="Fermer">✕</button>
-            <div class="donation-badge">🚲 Lyon</div>
-            <h3 class="donation-title">Bienvenue sur Vélo'v Tracker !</h3>
+            <div class="donation-badge">
+                <span class="badge-dot"></span>
+                Projet indépendant lyonnais
+            </div>
+            <h3 class="donation-title">Vélo'v Tracker Lyon</h3>
             <p class="donation-message">
-                Le projet a été réalisé par un nouveau lyonnais, soutenez mon travail en faisant une donation.
+                Ce service bénévole et gratuit a été réalisé par un nouvel habitant de Lyon. Si l'application vous est utile, vous pouvez soutenir mon travail en m'offrant un café.
             </p>
             <div class="donation-actions">
                 <a href="https://buymeacoffee.com/lincolnkermit" target="_blank" rel="noopener noreferrer" class="bmc-donate-btn" onclick="closeDonationModal()">
-                    <svg class="bmc-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="bmc-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
                         <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
                         <line x1="6" y1="1" x2="6" y2="4"></line>
@@ -157,16 +205,22 @@
     <div id="geo-consent-modal" class="modal-overlay hidden" onclick="closeGeoConsentModal(event)">
         <div class="donation-card" onclick="event.stopPropagation()">
             <button type="button" class="modal-close-btn" onclick="closeGeoConsentModal(event)" title="Fermer" aria-label="Fermer">✕</button>
-            <div class="donation-badge" style="background:#e0f2fe; color:#0369a1;">📍 Géolocalisation & Vie privée</div>
+            <div class="donation-badge badge-blue">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Géolocalisation & Vie privée
+            </div>
             <h3 class="donation-title">Autoriser la localisation ?</h3>
-            <p class="donation-message" style="font-size:13.5px; line-height:1.5; color:#475569; margin:12px 0 16px 0;">
+            <p class="donation-message">
                 Votre position GPS permet de vous situer sur la carte et de trouver instantanément les stations Vélo'v les plus proches.
                 <br><br>
-                En continuant, vous acceptez nos <a href="/cgu" target="_blank" style="color:#2563eb; font-weight:700; text-decoration:underline;">Conditions Générales d'Utilisation (CGU)</a>. Vos coordonnées sont traitées conformément au RGPD de façon anonymisée.
+                En continuant, vous acceptez nos <a href="/cgu" target="_blank" class="text-link">Conditions Générales d'Utilisation (CGU)</a>. Vos coordonnées sont traitées conformément au RGPD de façon anonymisée.
             </p>
             <div class="donation-actions">
                 <button type="button" class="geo-consent-btn" onclick="acceptGeoConsentAndLocate()">
-                    📍 Accepter & Me localiser
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+                    </svg>
+                    Accepter & Me localiser
                 </button>
                 <button type="button" class="donation-dismiss-btn" onclick="closeGeoConsentModal(event)">
                     Refuser
@@ -192,7 +246,7 @@
             <div class="history-tabs-bar">
                 <button type="button" class="history-tab-btn" data-mode="24" onclick="switchModalMode(24, this)">24 heures</button>
                 <button type="button" class="history-tab-btn" data-mode="0" onclick="switchModalMode(0, this)">Historique complet</button>
-                <button type="button" class="history-tab-btn active" data-mode="average" onclick="switchModalMode('average', this)">📊 Moyenne & Affluence</button>
+                <button type="button" class="history-tab-btn active" data-mode="average" onclick="switchModalMode('average', this)">Affluence moyenne</button>
             </div>
 
             <div id="modal-crowd-insight" class="crowd-insight-box hidden"></div>
@@ -208,7 +262,10 @@
 
     <!-- Discreet CGU & Privacy link -->
     <a href="/cgu" class="map-cgu-pill" target="_blank" title="Conditions Générales d'Utilisation & Confidentialité">
-        ⚖️ CGU & Confidentialité
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span>CGU & Confidentialité</span>
     </a>
 
     <script>
@@ -227,10 +284,11 @@
                 zoomControl: true
             });
 
-            // Standard OpenStreetMap tiles (100% free, no API key required)
-            L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                maxZoom: 19
+            // CartoDB Voyager tiles (100% free, no API key required, crisp modern design)
+            L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 20
             }).addTo(map);
 
             // Tap map to close search dropdown and filter dropdown
@@ -246,10 +304,10 @@
                 L.DomEvent.disableScrollPropagation(locateBtnEl);
             }
 
-            const searchEl = document.getElementById("search-container");
-            if (searchEl && typeof L !== "undefined" && L.DomEvent) {
-                L.DomEvent.disableClickPropagation(searchEl);
-                L.DomEvent.disableScrollPropagation(searchEl);
+            const topNavEl = document.getElementById("top-nav-bar");
+            if (topNavEl && typeof L !== "undefined" && L.DomEvent) {
+                L.DomEvent.disableClickPropagation(topNavEl);
+                L.DomEvent.disableScrollPropagation(topNavEl);
             }
 
             // When user drags map, un-follow user position (like Apple Maps)
@@ -301,10 +359,10 @@
                 const capacity = Number(station.capacity || 0);
                 const number = String(station.number);
 
-                let pinColor = "pin-gray";
-                if (bikes >= 5) pinColor = "pin-green";
-                else if (bikes > 0) pinColor = "pin-orange";
-                else pinColor = "pin-red";
+                let pinColor = "pin-slate";
+                if (bikes >= 5) pinColor = "pin-emerald";
+                else if (bikes > 0) pinColor = "pin-amber";
+                else pinColor = "pin-rose";
 
                 const icon = L.divIcon({
                     className: "custom-div-icon",
@@ -316,38 +374,70 @@
 
                 const marker = L.marker([station.latitude, station.longitude], { icon: icon });
 
+                const totalCapacity = capacity || (bikes + stands) || 1;
+                const elecPct = Math.round((electrical / totalCapacity) * 100);
+                const mechPct = Math.round((mechanical / totalCapacity) * 100);
+                const standsPct = Math.max(0, 100 - elecPct - mechPct);
+                const cleanName = (station.name || 'Station ' + number).replace(/^\d+\s*-\s*/, '');
+                const isOpen = (station.status === 'OPEN' || !station.status);
+
                 // Construct popup HTML
                 const popupHtml = `
-                    <div class="popup-header">
-                        <h2>${station.name || 'Station ' + number}</h2>
-                        <p class="station-address">${station.address || 'Lyon'}</p>
-                    </div>
-                    <div class="popup-body">
+                    <div class="popup-container">
+                        <div class="popup-header">
+                            <div class="popup-header-top">
+                                <span class="popup-station-num">#${number}</span>
+                                <span class="station-status-tag ${isOpen ? 'status-open' : 'status-closed'}">
+                                    <span class="status-indicator"></span> ${isOpen ? 'Ouverte' : 'Fermée'}
+                                </span>
+                            </div>
+                            <h2>${cleanName}</h2>
+                            <p class="station-address">${station.address || 'Lyon'}</p>
+                        </div>
+
+                        <div class="capacity-bar-wrapper">
+                            <div class="capacity-bar">
+                                <div class="cap-seg cap-elec" style="width: ${elecPct}%" title="Électrique: ${electrical}"></div>
+                                <div class="cap-seg cap-mech" style="width: ${mechPct}%" title="Mécanique: ${mechanical}"></div>
+                                <div class="cap-seg cap-stands" style="width: ${standsPct}%" title="Places: ${stands}"></div>
+                            </div>
+                            <div class="capacity-meta">
+                                <span>Capacité</span>
+                                <strong>${totalCapacity} bornes</strong>
+                            </div>
+                        </div>
+
                         <div class="stats-grid">
                             <div class="stat-card">
+                                <div class="stat-icon-wrap icon-elec">
+                                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                                </div>
                                 <div class="stat-value val-elec">${electrical}</div>
-                                <div class="stat-label">⚡ Élec</div>
+                                <div class="stat-label">Électrique</div>
                             </div>
                             <div class="stat-card">
+                                <div class="stat-icon-wrap icon-mech">
+                                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                </div>
                                 <div class="stat-value val-mech">${mechanical}</div>
-                                <div class="stat-label">🔧 Méca</div>
+                                <div class="stat-label">Mécanique</div>
                             </div>
                             <div class="stat-card">
+                                <div class="stat-icon-wrap icon-stands">
+                                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>
+                                </div>
                                 <div class="stat-value val-stands">${stands}</div>
-                                <div class="stat-label">🅿️ Libres</div>
+                                <div class="stat-label">Places libres</div>
                             </div>
                         </div>
-                        <div class="station-meta">
-                            <span>Capacité : <strong>${capacity}</strong></span>
-                            <span>Statut : <strong>${station.status || 'OPEN'}</strong></span>
-                        </div>
+
                         <div class="chart-section">
                             <div class="chart-header">
                                 <span class="chart-title">Historique</span>
                                 <div class="chart-tabs">
                                     <button type="button" class="chart-tab-btn active" onclick="switchChartWindow('${number}', 24, this)">24h</button>
                                     <button type="button" class="chart-tab-btn" onclick="switchChartWindow('${number}', 0, this)">Tout</button>
-                                    <button type="button" class="chart-tab-btn" onclick="switchChartWindow('${number}', 'average', this)">Moyenne</button>
+                                    <button type="button" class="chart-tab-btn" onclick="switchChartWindow('${number}', 'average', this)">Affluence</button>
                                 </div>
                                 <button type="button" class="chart-expand-btn" onclick="openHistoryModal('${number}', currentChartWindow || 'average')" title="Agrandir le graphique">⤢</button>
                             </div>
@@ -743,16 +833,25 @@
                 if (statsEl) {
                     statsEl.innerHTML = `
                         <div class="stat-card">
+                            <div class="stat-icon-wrap icon-elec">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                            </div>
                             <div class="stat-value val-elec">${station.electrical || 0}</div>
-                            <div class="stat-label">⚡ Électrique</div>
+                            <div class="stat-label">Électrique</div>
                         </div>
                         <div class="stat-card">
+                            <div class="stat-icon-wrap icon-mech">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                            </div>
                             <div class="stat-value val-mech">${station.mechanical || 0}</div>
-                            <div class="stat-label">🔧 Mécanique</div>
+                            <div class="stat-label">Mécanique</div>
                         </div>
                         <div class="stat-card">
+                            <div class="stat-icon-wrap icon-stands">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>
+                            </div>
                             <div class="stat-value val-stands">${station.stands || 0}</div>
-                            <div class="stat-label">🅿️ Places libres</div>
+                            <div class="stat-label">Places libres</div>
                         </div>
                     `;
                 }
@@ -835,9 +934,9 @@
                     if (insightBox) {
                         insightBox.innerHTML = `
                             <span class="insight-tag">AFFLUENCE</span>
-                            <span>🔥 Heure de pointe : <strong>${avg.peakHour}h00</strong> (${avg.peakCrowd}% d'occupation)</span>
-                            <span style="color:#d1d5db">•</span>
-                            <span>🍃 Période calme : <strong>${avg.calmHour}h00</strong> (${avg.calmCrowd}%)</span>
+                            <span>Heure de pointe : <strong>${avg.peakHour}h00</strong> (${avg.peakCrowd}% de demande)</span>
+                            <span style="color:#cbd5e1">•</span>
+                            <span>Période calme : <strong>${avg.calmHour}h00</strong> (${avg.calmCrowd}%)</span>
                         `;
                         insightBox.classList.remove("hidden");
                     }
@@ -850,7 +949,7 @@
                                     type: "bar",
                                     label: "Affluence / Fréquentation (%)",
                                     data: avg.crowdRate,
-                                    backgroundColor: avg.crowdRate.map(v => v >= 75 ? "rgba(239, 68, 68, 0.92)" : v >= 40 ? "rgba(245, 158, 11, 0.92)" : "rgba(16, 185, 129, 0.92)"),
+                                    backgroundColor: avg.crowdRate.map(v => v >= 75 ? "rgba(225, 29, 72, 0.9)" : v >= 40 ? "rgba(217, 119, 6, 0.9)" : "rgba(5, 150, 105, 0.9)"),
                                     borderRadius: isMobile ? 3 : 5,
                                     barPercentage: isMobile ? 0.85 : 0.75,
                                     yAxisID: "y"
@@ -859,8 +958,8 @@
                                     type: "line",
                                     label: "Vélos disponibles en moyenne",
                                     data: avg.avgBikes,
-                                    borderColor: "#38bdf8",
-                                    backgroundColor: "rgba(56, 189, 248, 0.25)",
+                                    borderColor: "#0284c7",
+                                    backgroundColor: "rgba(2, 132, 199, 0.2)",
                                     borderWidth: isMobile ? 2.5 : 3,
                                     pointRadius: isMobile ? 2.5 : 3.5,
                                     pointHoverRadius: 6,
@@ -887,30 +986,30 @@
                                     }
                                 },
                                 tooltip: {
-                                    backgroundColor: "rgba(15, 23, 42, 0.96)",
+                                    backgroundColor: "rgba(9, 9, 11, 0.96)",
                                     titleColor: "#ffffff",
                                     titleFont: { size: isMobile ? 12 : 13, weight: "bold" },
-                                    bodyColor: "#f3f4f6",
+                                    bodyColor: "#f4f4f5",
                                     bodyFont: { size: isMobile ? 11 : 12 },
                                     padding: isMobile ? 10 : 12,
                                     cornerRadius: 8,
                                     borderColor: "rgba(255, 255, 255, 0.1)",
                                     borderWidth: 1,
                                     callbacks: {
-                                        title: (items) => `⏰ Créneau : ${items[0].label}00 - ${items[0].label}59`,
+                                        title: (items) => `Créneau : ${items[0].label}00 - ${items[0].label}59`,
                                         label: (ctx) => {
                                             if (ctx.dataset.label.includes("Affluence")) {
                                                 const v = ctx.raw;
-                                                const tag = v >= 75 ? "🔥 Très fréquenté (Heure de pointe)" : v >= 40 ? "⚡ Fréquentation normale" : "🍃 Calme (Vélos abondants)";
+                                                const tag = v >= 75 ? "Forte affluence" : v >= 40 ? "Affluence modérée" : "Faible affluence";
                                                 return ` Affluence : ${v}% (${tag})`;
                                             }
                                             const idx = ctx.dataIndex;
-                                            return ` 🚲 Vélos en moy. : ${ctx.raw} (⚡ ${avg.avgElec[idx]} élec • 🔧 ${avg.avgMech[idx]} méca)`;
+                                            return ` Vélos moy. : ${ctx.raw} (${avg.avgElec[idx]} élec • ${avg.avgMech[idx]} méca)`;
                                         },
                                         afterLabel: (ctx) => {
                                             if (ctx.datasetIndex === 0) {
                                                 const idx = ctx.dataIndex;
-                                                return ` 🅿️ Places en moy. : ${avg.avgStands[idx]} libres`;
+                                                return ` Places moy. : ${avg.avgStands[idx]} libres`;
                                             }
                                             return null;
                                         }
@@ -974,8 +1073,8 @@
                 } else {
                     if (insightBox) {
                         insightBox.innerHTML = `
-                            <span class="insight-tag" style="background:#2563eb">INFO</span>
-                            <span>Affichage chronologique détaillé de la disponibilité des vélos et des places.</span>
+                            <span class="insight-tag" style="background:#09090b">CHRONOLOGIE</span>
+                            <span>Historique relevé de la disponibilité des vélos et des places.</span>
                         `;
                         insightBox.classList.remove("hidden");
                     }
@@ -1001,29 +1100,29 @@
                             labels: labels,
                             datasets: [
                                 {
-                                    label: "⚡ Électrique",
+                                    label: "Électrique",
                                     data: electricalData,
-                                    borderColor: "#10b981",
-                                    backgroundColor: "rgba(16, 185, 129, 0.2)",
+                                    borderColor: "#059669",
+                                    backgroundColor: "rgba(5, 150, 105, 0.15)",
                                     borderWidth: isMobile ? 2 : 2.5,
                                     pointRadius: history.length > 40 ? 0 : (isMobile ? 2.5 : 3.5),
                                     tension: 0.25,
                                     fill: true
                                 },
                                 {
-                                    label: "🔧 Mécanique",
+                                    label: "Mécanique",
                                     data: mechanicalData,
-                                    borderColor: "#f97316",
-                                    backgroundColor: "rgba(249, 115, 22, 0.2)",
+                                    borderColor: "#0284c7",
+                                    backgroundColor: "rgba(2, 132, 199, 0.15)",
                                     borderWidth: isMobile ? 2 : 2.5,
                                     pointRadius: history.length > 40 ? 0 : (isMobile ? 2.5 : 3.5),
                                     tension: 0.25,
                                     fill: true
                                 },
                                 {
-                                    label: "🅿️ Places libres",
+                                    label: "Places libres",
                                     data: standsData,
-                                    borderColor: "#38bdf8",
+                                    borderColor: "#a1a1aa",
                                     borderWidth: isMobile ? 1.5 : 2,
                                     borderDash: [4, 4],
                                     pointRadius: 0,
@@ -1489,16 +1588,16 @@
                 const cleanName = String(station.name || "").replace(/^\d+\s*-\s*/, "");
 
                 let badgeClass = "badge-gray";
-                let dotColor = "#6b7280";
+                let dotColor = "#71717a";
                 if (bikes >= 5) {
                     badgeClass = "badge-green";
-                    dotColor = "#16a34a";
+                    dotColor = "#059669";
                 } else if (bikes > 0) {
                     badgeClass = "badge-orange";
-                    dotColor = "#ea580c";
+                    dotColor = "#d97706";
                 } else {
                     badgeClass = "badge-red";
-                    dotColor = "#dc2626";
+                    dotColor = "#e11d48";
                 }
 
                 html += `
@@ -1512,7 +1611,7 @@
                         </div>
                         <div class="search-res-badge ${badgeClass}">
                             <span class="search-res-dot" style="background:${dotColor}"></span>
-                            <span class="search-res-bikes">${bikes} vélos</span>
+                            <span class="search-res-bikes">${bikes} ${bikes > 1 ? 'vélos' : 'vélo'}</span>
                             <span class="search-res-stands">${stands} pl.</span>
                         </div>
                     </div>
